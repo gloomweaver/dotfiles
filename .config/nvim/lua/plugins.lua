@@ -23,8 +23,19 @@ return require('packer').startup(function(use)
     use 'hrsh7th/nvim-cmp'
     use 'nvim-treesitter/nvim-treesitter'
 
+    -- themes
     use 'folke/tokyonight.nvim'
     use 'ellisonleao/gruvbox.nvim'
+
+    -- editor eliments
+    use 'nvim-tree/nvim-tree.lua'
+    use 'nvim-tree/nvim-web-devicons'
+    use 'nvim-lualine/lualine.nvim'
+    use {
+        'nvim-telescope/telescope.nvim',
+        tag = '0.1.1',
+        requires = {{'nvim-lua/plenary.nvim'}}
+    }
 
     if packer_bootstrap then
         require('packer').sync()
