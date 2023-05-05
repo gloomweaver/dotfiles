@@ -23,6 +23,9 @@ return require('packer').startup(function(use)
     use 'hrsh7th/nvim-cmp'
     use 'nvim-treesitter/nvim-treesitter'
 
+    use 'folke/tokyonight.nvim'
+    use 'ellisonleao/gruvbox.nvim'
+
     if packer_bootstrap then
         require('packer').sync()
     end

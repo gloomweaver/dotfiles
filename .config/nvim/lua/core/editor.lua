@@ -35,3 +35,5 @@ vim.api.nvim_create_autocmd("InsertLeave", {
 })
 -- Add asterisks in block comments
 vim.opt.formatoptions:append{'r'}
+vim.o.background = "dark"
+vim.cmd([[colorscheme gruvbox]])
