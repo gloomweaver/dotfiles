@@ -2,5 +2,6 @@ require('base')
 require('highlights')
 require('maps')
 require('plugins')
-
-require('lsp/typescript')
+require('lsp')
+require('autocomplete')
+require('treesitter')
