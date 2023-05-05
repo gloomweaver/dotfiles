@@ -3,7 +3,7 @@ brew install tree-sitter
 brew install ripgrep
 
 ln -s $(which nvim) /opt/homebrew/bin/v
-cp -R ./.config/nvim ~/.config/
+cp -R ./config/nvim ~/.config/
 
 npm install -g typescript-language-server
 
