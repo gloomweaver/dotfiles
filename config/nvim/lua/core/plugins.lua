@@ -24,6 +24,16 @@ return require('packer').startup(function(use)
     use 'hrsh7th/cmp-buffer'
     use 'hrsh7th/nvim-cmp'
     use 'nvim-treesitter/nvim-treesitter'
+    use({
+        "glepnir/lspsaga.nvim",
+        opt = true,
+        branch = "main",
+        event = "LspAttach",
+        config = function()
+            require("lspsaga").setup({})
+        end,
+        requires = {{"nvim-tree/nvim-web-devicons"}, {"nvim-treesitter/nvim-treesitter"}}
+    })
 
     -- themes
     use 'folke/tokyonight.nvim'
