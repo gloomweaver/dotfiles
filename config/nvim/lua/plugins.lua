@@ -26,6 +26,7 @@ return require('packer').startup(function(use)
     -- themes
     use 'folke/tokyonight.nvim'
     use 'ellisonleao/gruvbox.nvim'
+    use "rebelot/kanagawa.nvim"
 
     -- editor eliments
     use 'nvim-tree/nvim-tree.lua'
