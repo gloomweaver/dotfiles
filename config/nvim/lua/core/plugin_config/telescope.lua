@@ -1,17 +1,17 @@
 local status, telescope = pcall(require, "telescope")
-if (not status) then
+if not status then
     return
 end
-local actions = require('telescope.actions')
+local actions = require("telescope.actions")
 local builtin = require("telescope.builtin")
 
 local function telescope_buffer_dir()
-    return vim.fn.expand('%:p:h')
+    return vim.fn.expand("%:p:h")
 end
 
-local fb_actions = require"telescope".extensions.file_browser.actions
+local fb_actions = require("telescope").extensions.file_browser.actions
 
-telescope.setup {
+telescope.setup({
     defaults = {
         mappings = {
             n = {
@@ -19,32 +19,32 @@ telescope.setup {
             }
         }
     }
-}
+})
 
 -- keymaps
-vim.keymap.set('n', '<leader>ff', function()
+vim.keymap.set("n", "<leader>ff", function()
     builtin.find_files({
         no_ignore = false,
         hidden = false
     })
 end)
-vim.keymap.set('n', '<leader>fg', function()
+vim.keymap.set("n", "<leader>fg", function()
     builtin.live_grep()
 end)
-vim.keymap.set('n', '<leader>fb', function()
+vim.keymap.set("n", "<leader>fb", function()
     builtin.buffers()
 end)
-vim.keymap.set('n', ';t', function()
+vim.keymap.set("n", ";t", function()
     builtin.help_tags()
 end)
-vim.keymap.set('n', ';;', function()
+vim.keymap.set("n", ";;", function()
     builtin.resume()
 end)
-vim.keymap.set('n', ';e', function()
+vim.keymap.set("n", ";e", function()
     builtin.diagnostics()
 end)
 
-telescope.setup {
+telescope.setup({
     defaults = {
         mappings = {
             n = {
@@ -61,7 +61,7 @@ telescope.setup {
                 -- your custom insert mode mappings
                 ["i"] = {
                     ["<C-w>"] = function()
-                        vim.cmd('normal vbd')
+                        vim.cmd("normal vbd")
                     end
                 },
                 ["n"] = {
@@ -69,13 +69,13 @@ telescope.setup {
                     ["N"] = fb_actions.create,
                     ["h"] = fb_actions.goto_parent_dir,
                     ["/"] = function()
-                        vim.cmd('startinsert')
+                        vim.cmd("startinsert")
                     end
                 }
             }
         }
     }
-}
+})
 telescope.load_extension("file_browser")
 
 vim.keymap.set("n", "<leader>fd", function()
