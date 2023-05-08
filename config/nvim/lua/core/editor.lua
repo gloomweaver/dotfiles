@@ -37,3 +37,4 @@ vim.api.nvim_create_autocmd("InsertLeave", {
 vim.opt.formatoptions:append{'r'}
 
 vim.wo.relativenumber = true
+vim.api.nvim_set_option("clipboard","unnamed")
