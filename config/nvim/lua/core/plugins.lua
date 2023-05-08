@@ -17,6 +17,7 @@ return require('packer').startup(function(use)
     -- lsp and autocomplete
     use 'williamboman/mason.nvim'
     use 'williamboman/mason-lspconfig.nvim'
+    use 'jose-elias-alvarez/null-ls.nvim'
     use 'neovim/nvim-lspconfig'
     use 'onsails/lspkind-nvim'
     use 'L3MON4D3/LuaSnip'
@@ -55,6 +56,7 @@ return require('packer').startup(function(use)
     }
 
     use 'github/copilot.vim'
+    use 'tpope/vim-fugitive'
 
     if packer_bootstrap then
         require('packer').sync()

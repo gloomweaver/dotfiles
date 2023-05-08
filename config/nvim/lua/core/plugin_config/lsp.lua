@@ -2,7 +2,7 @@ local autocomplete = require('core.plugin_config.autocomplete')
 
 require('mason').setup()
 require('mason-lspconfig').setup({
-    ensure_installed = {"lua_ls", "elixirls", "eslint_d", "prettierd", "tsserver"}
+    ensure_installed = {"lua_ls", "elixirls", "tsserver"}
 })
 
 require('lspconfig').lua_ls.setup {
