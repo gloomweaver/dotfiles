@@ -7,7 +7,7 @@ local keymap = vim.keymap.set
 keymap("n", "gh", "<cmd>Lspsaga lsp_finder<CR>")
 
 -- Code action
-keymap({"n", "v"}, "<leader>ca", "<cmd>Lspsaga code_action<CR>")
+keymap({ "n", "v" }, "<leader>ca", "<cmd>Lspsaga code_action<CR>")
 
 -- Rename all occurrences of the hovered word for the entire file
 keymap("n", "gr", "<cmd>Lspsaga rename<CR>")
@@ -56,14 +56,14 @@ keymap("n", "]e", "<cmd>Lspsaga diagnostic_jump_next<CR>")
 
 -- Diagnostic jump with filters such as only jumping to an error
 keymap("n", "[E", function()
-    require("lspsaga.diagnostic"):goto_prev({
-        severity = vim.diagnostic.severity.ERROR
-    })
+  require("lspsaga.diagnostic"):goto_prev {
+    severity = vim.diagnostic.severity.ERROR,
+  }
 end)
 keymap("n", "]E", function()
-    require("lspsaga.diagnostic"):goto_next({
-        severity = vim.diagnostic.severity.ERROR
-    })
+  require("lspsaga.diagnostic"):goto_next {
+    severity = vim.diagnostic.severity.ERROR,
+  }
 end)
 
 -- Toggle outline
@@ -89,4 +89,4 @@ keymap("n", "<Leader>ci", "<cmd>Lspsaga incoming_calls<CR>")
 keymap("n", "<Leader>co", "<cmd>Lspsaga outgoing_calls<CR>")
 
 -- Floating terminal
-keymap({"n", "t"}, "<A-d>", "<cmd>Lspsaga term_toggle<CR>")
+keymap({ "n", "t" }, "<A-d>", "<cmd>Lspsaga term_toggle<CR>")

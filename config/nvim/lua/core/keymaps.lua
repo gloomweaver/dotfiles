@@ -2,8 +2,8 @@ vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.g.copilot_no_tab_map = true
 vim.api.nvim_set_keymap("i", "<C-w>", 'copilot#Accept("<CR>")', {
-	silent = true,
-	expr = true,
+  silent = true,
+  expr = true,
 })
 
 vim.keymap.set("n", "x", '"_x')
