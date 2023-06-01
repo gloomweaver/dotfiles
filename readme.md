@@ -13,3 +13,4 @@ tmux
 ```
 
 ## Acknowledge
+- https://github.com/dreamsofcode-io/tmux - tmux config
