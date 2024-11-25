@@ -1,9 +1,9 @@
 # Dotfiles
 
-- Install `stow`
+- Install [stow](https://www.gnu.org/software/stow/)
 - Run `stow .`
 
 ## Description
 
-- Configuration for neovim based on lazy-vim
+- Configuration for neovim based on [lazyvim](https://www.lazyvim.org/)
 - Configuration for alacritty
