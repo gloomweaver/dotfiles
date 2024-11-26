@@ -1,7 +1,0 @@
-alacritty
-calibre
-dbeaver-community
-font-fira-code
-font-fira-code-nerd-font
-keycastr
-keyclu
