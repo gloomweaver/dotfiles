@@ -1,1 +1,2 @@
-alias ls="ls"
+alias ls="ls -A -C -F -G -H"
+alias lg="lazygit"
