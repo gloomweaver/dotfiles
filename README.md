@@ -6,4 +6,4 @@
 ## Description
 
 - Configuration for neovim based on [lazyvim](https://www.lazyvim.org/)
-- Configuration for alacritty
+- Configuration for ghostty
