@@ -1,0 +1,11 @@
+theme = kanagawabones
+
+# Background settings
+background-opacity = 0.75
+background-blur = 25
+
+# Remove titlebar
+macos-titlebar-style = hidden
+macos-non-native-fullscreen = true
+
+# TODO: Add shaders 
