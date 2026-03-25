@@ -5,3 +5,6 @@
 
 # Fish generated files
 fish/.config/fish/fish_variables
+
+# Brew lock file
+Brewfile.mac.lock.json

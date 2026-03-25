@@ -111,7 +111,8 @@ ensure_homebrew
 if [[ "$(uname)" == "Darwin" ]]; then
     step "Packages (Brewfile.mac)"
     info "Running brew bundle (skips already-installed packages)..."
-    brew bundle --file="$DOTFILES_DIR/Brewfile.mac" --no-lock
+    brew bundle --file="$DOTFILES_DIR/Brewfile.mac"
+    rm -f "$DOTFILES_DIR/Brewfile.mac.lock.json"
     ok "Brewfile.mac applied"
 else
     step "Packages"
