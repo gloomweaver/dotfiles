@@ -14,7 +14,6 @@ return {
     "mason-org/mason-lspconfig.nvim",
     dependencies = {
       "mason-org/mason.nvim",
-      "neovim/nvim-lspconfig",
     },
     config = function()
       require("mason-lspconfig").setup({
@@ -37,17 +36,21 @@ return {
     end,
   },
 
-  -- LSP configuration
+  -- Completion (needed for LSP capabilities)
+  {
+    "saghen/blink.cmp",
+    -- configured in completion.lua, just declare dependency here
+  },
+
+  -- LSP configuration using Neovim 0.11 native vim.lsp.config API
   {
     "neovim/nvim-lspconfig",
-    event = { "BufReadPre", "BufNewFile" },  -- load when opening a file
+    event = { "BufReadPre", "BufNewFile" },
     dependencies = {
       "mason-org/mason-lspconfig.nvim",
-      "saghen/blink.cmp",  -- completion capabilities
+      "saghen/blink.cmp",
     },
     config = function()
-      local lspconfig = require("lspconfig")
-
       -- Keymaps — only active when an LSP server is attached to the buffer
       vim.api.nvim_create_autocmd("LspAttach", {
         callback = function(event)
@@ -81,48 +84,56 @@ return {
       -- Get completion capabilities from blink.cmp
       local capabilities = require("blink.cmp").get_lsp_capabilities()
 
-      -- Setup each server
-      -- mason-lspconfig auto-detects installed servers, but we configure them explicitly
-      -- so we can pass capabilities and per-server settings
-
-      local servers = {
-        lua_ls = {
-          settings = {
-            Lua = {
-              -- Tell lua_ls this is neovim config (knows about vim.*)
-              workspace = { checkThirdParty = false },
-              telemetry = { enable = false },
-            },
+      -- Configure each server using vim.lsp.config (Neovim 0.11+ native API)
+      vim.lsp.config("lua_ls", {
+        capabilities = capabilities,
+        settings = {
+          Lua = {
+            workspace = { checkThirdParty = false },
+            telemetry = { enable = false },
           },
         },
-        ts_ls = {},
-        gopls = {
-          settings = {
-            gopls = {
-              analyses = { unusedparams = true },
-              staticcheck = true,
-            },
+      })
+
+      vim.lsp.config("ts_ls", {
+        capabilities = capabilities,
+      })
+
+      vim.lsp.config("gopls", {
+        capabilities = capabilities,
+        settings = {
+          gopls = {
+            analyses = { unusedparams = true },
+            staticcheck = true,
           },
         },
-        rust_analyzer = {},
-        pyright = {},
-        jsonls = {},
-        yamlls = {},
-        html = {},
-        cssls = {},
-        bashls = {},
-        elixirls = {},
-        tailwindcss = {},
-      }
+      })
 
-      for server, opts in pairs(servers) do
-        opts.capabilities = capabilities
-        -- Only setup if the server executable exists (avoid errors)
-        local ok = pcall(function() lspconfig[server].setup(opts) end)
-        if not ok then
-          vim.notify("LSP: failed to setup " .. server, vim.log.levels.WARN)
-        end
-      end
+      vim.lsp.config("rust_analyzer", { capabilities = capabilities })
+      vim.lsp.config("pyright", { capabilities = capabilities })
+      vim.lsp.config("jsonls", { capabilities = capabilities })
+      vim.lsp.config("yamlls", { capabilities = capabilities })
+      vim.lsp.config("html", { capabilities = capabilities })
+      vim.lsp.config("cssls", { capabilities = capabilities })
+      vim.lsp.config("bashls", { capabilities = capabilities })
+      vim.lsp.config("elixirls", { capabilities = capabilities })
+      vim.lsp.config("tailwindcss", { capabilities = capabilities })
+
+      -- Enable all configured servers
+      vim.lsp.enable({
+        "lua_ls",
+        "ts_ls",
+        "gopls",
+        "rust_analyzer",
+        "pyright",
+        "jsonls",
+        "yamlls",
+        "html",
+        "cssls",
+        "bashls",
+        "elixirls",
+        "tailwindcss",
+      })
 
       -- Diagnostic appearance
       vim.diagnostic.config({
