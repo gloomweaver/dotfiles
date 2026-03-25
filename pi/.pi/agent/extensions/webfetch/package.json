@@ -1,0 +1,14 @@
+{
+  "name": "pi-webfetch-extension",
+  "version": "1.0.0",
+  "description": "Web fetch tool for pi agent",
+  "main": "index.ts",
+  "dependencies": {
+    "turndown": "^7.1.2",
+    "cheerio": "^1.0.0-rc.12"
+  },
+  "devDependencies": {
+    "@types/turndown": "^5.0.4",
+    "@types/cheerio": "^0.22.35"
+  }
+}

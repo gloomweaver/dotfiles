@@ -80,6 +80,26 @@ stow_package() {
     fi
 }
 
+# Stow with --no-folding: symlinks individual files, not directories
+# Use for packages that share a directory with non-managed files (e.g. ~/.pi/agent/sessions)
+stow_package_no_folding() {
+    local pkg="$1"
+    if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
+        warn "Package '$pkg' not found, skipping"
+        return
+    fi
+    if stow -d "$DOTFILES_DIR" -t "$HOME" -R --no-folding "$pkg" 2>/dev/null; then
+        ok "Stowed $pkg (no-folding)"
+    else
+        warn "Conflicts for $pkg — adopting existing files..."
+        stow -d "$DOTFILES_DIR" -t "$HOME" --adopt --no-folding "$pkg"
+        # Restore dotfiles versions after adopt
+        (cd "$DOTFILES_DIR" && git checkout -- "$pkg" 2>/dev/null || true)
+        stow -d "$DOTFILES_DIR" -t "$HOME" -R --no-folding "$pkg"
+        ok "Stowed $pkg (no-folding, adopted conflicts)"
+    fi
+}
+
 # ── Backup existing configs before first run ─────────────
 backup_if_needed() {
     local path="$1"
@@ -132,6 +152,7 @@ stow_package "ghostty"
 stow_package "tmux"
 stow_package "nvim"
 stow_package "aerospace"
+stow_package_no_folding "pi"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"
@@ -185,7 +206,17 @@ else
     ok "TPM installed — press Ctrl+b I inside tmux to install plugins"
 fi
 
-# ── 7. Create ~/.local/bin ───────────────────────────────
+# ── 7. Pi extension dependencies ─────────────────────────
+step "Pi extensions"
+if [[ -f "$HOME/.pi/agent/extensions/webfetch/package.json" ]]; then
+    info "Installing webfetch dependencies..."
+    (cd "$HOME/.pi/agent/extensions/webfetch" && npm install --silent 2>/dev/null)
+    ok "webfetch ready"
+else
+    info "Skipping (pi extensions not found)"
+fi
+
+# ── 8. Create ~/.local/bin ───────────────────────────────
 mkdir -p "$HOME/.local/bin"
 
 # ── 8. macOS defaults ───────────────────────────────────

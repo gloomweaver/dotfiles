@@ -8,3 +8,8 @@ fish/.config/fish/fish_variables
 
 # Brew lock file
 Brewfile.mac.lock.json
+
+# Pi generated files
+pi/.pi/agent/sessions/
+pi/.pi/agent/auth.json
+pi/.pi/agent/extensions/*/node_modules/
