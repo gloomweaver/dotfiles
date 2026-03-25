@@ -5,7 +5,7 @@ Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). C
 ## Quick Start
 
 ```bash
-git clone https://github.com/<user>/dotfiles.git ~/dotfiles
+git clone https://github.com/gloomweaver/dotfiles.git ~/dotfiles
 cd ~/dotfiles
 ./install.sh
 ```
