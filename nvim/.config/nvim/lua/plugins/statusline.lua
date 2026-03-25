@@ -1,7 +1,7 @@
 -- Lualine — statusline that shows mode, file, git, diagnostics, LSP
 return {
   "nvim-lualine/lualine.nvim",
-  dependencies = { "nvim-tree/nvim-web-devicons" },
+  dependencies = { "nvim-tree/nvim-web-devicons", "catppuccin/nvim" },
   event = "VeryLazy",
   config = function()
     require("lualine").setup({
