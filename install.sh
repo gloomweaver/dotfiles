@@ -155,12 +155,11 @@ step "Linking dotfiles (stow)"
 backup_if_needed "$HOME/.config/fish"
 backup_if_needed "$HOME/.config/ghostty"
 backup_if_needed "$HOME/.tmux.conf"
-backup_if_needed "$HOME/.aliases"
 
 stow_package "fish"
 stow_package "ghostty"
 stow_package "tmux"
-stow_package "misc"
+stow_package "nvim"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"
