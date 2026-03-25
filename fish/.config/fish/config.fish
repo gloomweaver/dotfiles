@@ -4,18 +4,18 @@ end
 
 set fish_greeting ""
 
-# Default editor
+# ── Editor ───────────────────────────────────────────────
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 
-# Homebrew
+# ── Homebrew ─────────────────────────────────────────────
 if test -f /opt/homebrew/bin/brew
     eval "$(/opt/homebrew/bin/brew shellenv)"
 else if test -f /usr/local/bin/brew
     eval "$(/usr/local/bin/brew shellenv)"
 end
 
-# asdf version manager
+# ── asdf version manager ────────────────────────────────
 if test -f $HOMEBREW_PREFIX/opt/asdf/libexec/asdf.fish
     source $HOMEBREW_PREFIX/opt/asdf/libexec/asdf.fish
 else if test -f ~/.asdf/asdf.fish
@@ -25,23 +25,64 @@ if test -d ~/.asdf/shims
     fish_add_path ~/.asdf/shims
 end
 
-# Rust
-fish_add_path ~/.cargo/bin
-
-# Local bin
-fish_add_path ~/.local/bin
-
-# fzf
-if command -q fzf
-    fzf --fish 2>/dev/null | source
+# ── Golang ───────────────────────────────────────────────
+if command -q go
+    fish_add_path (go env GOPATH)/bin
 end
 
-# Starship prompt
+# ── Rust ─────────────────────────────────────────────────
+fish_add_path ~/.cargo/bin
+if test -d $HOMEBREW_PREFIX/opt/rustup/bin
+    fish_add_path $HOMEBREW_PREFIX/opt/rustup/bin
+end
+
+# ── Bun ──────────────────────────────────────────────────
+if test -d ~/.bun
+    set -gx BUN_INSTALL ~/.bun
+    fish_add_path $BUN_INSTALL/bin
+end
+
+# ── pnpm ─────────────────────────────────────────────────
+if test -d ~/Library/pnpm
+    set -gx PNPM_HOME ~/Library/pnpm
+    fish_add_path $PNPM_HOME
+end
+
+# ── NVM ──────────────────────────────────────────────────
+if test -d ~/.nvm
+    set -gx NVM_DIR ~/.nvm
+end
+
+# ── Java (Coursier / Temurin) ────────────────────────────
+if test -d "$HOME/Library/Application Support/Coursier/bin"
+    fish_add_path "$HOME/Library/Application Support/Coursier/bin"
+end
+
+# ── Local bin ────────────────────────────────────────────
+fish_add_path ~/.local/bin
+
+# ── OrbStack ────────────────────────────────────────────
+if test -f ~/.orbstack/shell/init.fish
+    source ~/.orbstack/shell/init.fish
+end
+
+# ── Aliases ──────────────────────────────────────────────
+alias ls "eza -a --icons --group-directories-first 2>/dev/null; or command ls -A -C -F -G -H"
+alias ll "eza -la --icons --group-directories-first 2>/dev/null; or command ls -lAh"
+alias lg lazygit
+alias cat "bat --style=plain 2>/dev/null; or command cat"
+
+# ── Starship prompt ─────────────────────────────────────
 if command -q starship
     starship init fish | source
 end
 
-# zoxide
+# ── fzf ──────────────────────────────────────────────────
+if command -q fzf
+    fzf --fish 2>/dev/null | source
+end
+
+# ── zoxide (smart cd) ───────────────────────────────────
 if command -q zoxide
     zoxide init fish | source
 end
