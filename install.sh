@@ -107,45 +107,15 @@ echo ""
 step "Homebrew"
 ensure_homebrew
 
-# ── 2. Core CLI packages ────────────────────────────────
-step "Core CLI packages"
-# These are the essentials the fish config and daily workflow depend on
-CORE_PACKAGES=(
-    stow        # symlink manager for dotfiles
-    fish        # shell
-    starship    # prompt
-    fzf         # fuzzy finder
-    ripgrep     # fast grep
-    fd          # fast find
-    bat         # cat with syntax highlighting
-    eza         # modern ls
-    zoxide      # smart cd
-    git-delta   # better git diffs
-    neovim      # editor
-    tmux        # terminal multiplexer
-    lazygit     # git TUI
-    gh          # GitHub CLI
-    jq          # JSON processor
-    asdf        # version manager
-    tree        # directory listing
-)
-
-info "Checking core packages..."
-missing=()
-for pkg in "${CORE_PACKAGES[@]}"; do
-    if brew list "$pkg" &>/dev/null; then
-        ok "$pkg"
-    else
-        missing+=("$pkg")
-    fi
-done
-
-if [[ ${#missing[@]} -gt 0 ]]; then
-    info "Installing missing packages: ${missing[*]}"
-    brew install "${missing[@]}"
-    ok "All core packages installed"
+# ── 2. Packages from Brewfile ────────────────────────────
+if [[ "$(uname)" == "Darwin" ]]; then
+    step "Packages (Brewfile.mac)"
+    info "Running brew bundle (skips already-installed packages)..."
+    brew bundle --file="$DOTFILES_DIR/Brewfile.mac" --no-lock
+    ok "Brewfile.mac applied"
 else
-    ok "All core packages already installed"
+    step "Packages"
+    info "Skipping Brewfile.mac (not macOS)"
 fi
 
 # ── 3. Backup & Stow ────────────────────────────────────
