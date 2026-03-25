@@ -1,7 +1,6 @@
 # Dotfiles
 
 - Install [stow](https://www.gnu.org/software/stow/)
-- Run `stow .`
 
 ## Description
 

@@ -8,4 +8,4 @@ background-blur = 25
 macos-titlebar-style = hidden
 macos-non-native-fullscreen = true
 
-# TODO: Add shaders 
+# TODO: Add shaders
