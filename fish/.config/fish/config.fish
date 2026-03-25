@@ -84,5 +84,8 @@ end
 
 # ── zoxide (smart cd) ───────────────────────────────────
 if command -q zoxide
-    zoxide init fish | source
+    zoxide init --cmd cd fish | source
+    # This replaces `cd` with zoxide's `z`, so `cd foo` does smart jumping
+    # `cdi` opens interactive fzf picker
+    # Regular `cd /exact/path` still works normally
 end
