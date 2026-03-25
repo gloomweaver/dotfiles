@@ -3,8 +3,23 @@
 *.swp
 *~
 
-# Fish generated files
+# Fish generated files (machine-local)
 fish/.config/fish/fish_variables
+
+# Fisher-managed files (installed by `fisher install` from fish_plugins)
+# We track fish_plugins as the source of truth; fisher manages these:
+fish/.config/fish/functions/fisher.fish
+fish/.config/fish/completions/fisher.fish
+fish/.config/fish/functions/__z*.fish
+fish/.config/fish/functions/_fzf_*.fish
+fish/.config/fish/functions/fzf_configure_bindings.fish
+fish/.config/fish/functions/_autopair_*.fish
+fish/.config/fish/conf.d/z.fish
+fish/.config/fish/conf.d/fzf.fish
+fish/.config/fish/conf.d/autopair.fish
+fish/.config/fish/completions/fzf_configure_bindings.fish
+fish/.config/fish/themes/catppuccin-*.theme
+fish/.config/fish/themes/static
 
 # Brew lock file
 Brewfile.mac.lock.json

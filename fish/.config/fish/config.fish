@@ -66,26 +66,5 @@ if test -f ~/.orbstack/shell/init.fish
     source ~/.orbstack/shell/init.fish
 end
 
-# ── Aliases ──────────────────────────────────────────────
-alias ls "eza -a --icons --group-directories-first 2>/dev/null; or command ls -A -C -F -G -H"
-alias ll "eza -la --icons --group-directories-first 2>/dev/null; or command ls -lAh"
-alias lg lazygit
-alias cat "bat --style=plain 2>/dev/null; or command cat"
-
-# ── Starship prompt ─────────────────────────────────────
-if command -q starship
-    starship init fish | source
-end
-
-# ── fzf ──────────────────────────────────────────────────
-if command -q fzf
-    fzf --fish 2>/dev/null | source
-end
-
-# ── zoxide (smart cd) ───────────────────────────────────
-if command -q zoxide
-    zoxide init --cmd cd fish | source
-    # This replaces `cd` with zoxide's `z`, so `cd foo` does smart jumping
-    # `cdi` opens interactive fzf picker
-    # Regular `cd /exact/path` still works normally
-end
+# ── Aliases & tool integrations are in conf.d/ ──────────
+# See: conf.d/aliases.fish, conf.d/tools.fish

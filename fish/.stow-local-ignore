@@ -1,0 +1,8 @@
+# Default stow ignores
+\.git
+\.gitignore
+README.*
+LICENSE.*
+
+# Fish-specific: fish_variables is machine-local
+fish_variables
