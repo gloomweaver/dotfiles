@@ -160,6 +160,7 @@ stow_package "fish"
 stow_package "ghostty"
 stow_package "tmux"
 stow_package "nvim"
+stow_package "aerospace"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"
