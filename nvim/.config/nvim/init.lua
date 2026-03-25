@@ -10,6 +10,9 @@ vim.g.maplocalleader = " "
 -- ── Core options ────────────────────────────────────────
 local opt = vim.opt
 
+-- Disable Kitty keyboard protocol (causes raw escape codes in tmux)
+vim.g.kitty_protocol = false
+
 -- Line numbers
 opt.number = true            -- show line numbers
 opt.relativenumber = true    -- relative to cursor (makes j/k jumps easy: 5j, 12k)
