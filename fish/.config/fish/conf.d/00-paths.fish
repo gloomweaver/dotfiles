@@ -47,11 +47,6 @@ if test -d ~/Library/pnpm
     fish_add_path $PNPM_HOME
 end
 
-# ── NVM ──────────────────────────────────────────────────
-if test -d ~/.nvm
-    set -gx NVM_DIR ~/.nvm
-end
-
 # ── Java (Coursier / Temurin) ────────────────────────────
 if test -d "$HOME/Library/Application Support/Coursier/bin"
     fish_add_path "$HOME/Library/Application Support/Coursier/bin"

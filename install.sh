@@ -206,7 +206,36 @@ else
     ok "TPM installed — press Ctrl+b I inside tmux to install plugins"
 fi
 
-# ── 7. Pi extension dependencies ─────────────────────────
+# ── 7. asdf + Node.js LTS ────────────────────────────────
+step "asdf + Node.js"
+if command_exists asdf; then
+    ok "asdf already installed"
+else
+    warn "asdf not found — it should have been installed via Brewfile"
+fi
+
+if asdf list nodejs 2>/dev/null | grep -q lts; then
+    ok "Node.js LTS already installed"
+else
+    info "Adding asdf nodejs plugin..."
+    asdf plugin add nodejs 2>/dev/null || true
+    info "Installing Node.js LTS (this may take a minute)..."
+    asdf install nodejs lts
+    asdf set --home nodejs lts
+    ok "Node.js LTS installed"
+fi
+
+# ── 8. Pi coding agent ───────────────────────────────────
+step "Pi coding agent"
+if command_exists pi; then
+    ok "Pi already installed ($(pi --version 2>/dev/null || echo 'unknown version'))"
+else
+    info "Installing pi coding agent..."
+    npm install -g @mariozechner/pi-coding-agent
+    ok "Pi installed"
+fi
+
+# ── 9. Pi extension dependencies ─────────────────────────
 step "Pi extensions"
 if [[ -f "$HOME/.pi/agent/extensions/webfetch/package.json" ]]; then
     info "Installing webfetch dependencies..."
@@ -216,10 +245,10 @@ else
     info "Skipping (pi extensions not found)"
 fi
 
-# ── 8. Create ~/.local/bin ───────────────────────────────
+# ── 10. Create ~/.local/bin ──────────────────────────────
 mkdir -p "$HOME/.local/bin"
 
-# ── 8. macOS defaults ───────────────────────────────────
+# ── 11. macOS defaults ──────────────────────────────────
 if [[ "$(uname)" == "Darwin" ]]; then
     step "macOS defaults"
     if confirm "Apply recommended macOS defaults? (keyboard, Finder, Dock)" "y"; then
