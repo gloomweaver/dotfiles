@@ -7,7 +7,7 @@ alias lt "eza -a --icons --tree --level=2 --group-directories-first 2>/dev/null;
 alias lg lazygit
 alias cat "bat --style=plain 2>/dev/null; or command cat"
 
-# Git shortcuts
+# Git shortcuts (prefixed with g)
 alias gs "git status -sb"
 alias ga "git add"
 alias gc "git commit"
