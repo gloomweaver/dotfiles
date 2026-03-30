@@ -1,0 +1,2 @@
+# Increase timeout for slow asdf shims (default: 500ms)
+command_timeout = 2000

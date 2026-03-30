@@ -145,6 +145,7 @@ step "Linking dotfiles (stow)"
 # Backup real (non-symlink) configs that stow would overwrite
 backup_if_needed "$HOME/.config/fish"
 backup_if_needed "$HOME/.config/ghostty"
+backup_if_needed "$HOME/.config/starship.toml"
 backup_if_needed "$HOME/.tmux.conf"
 
 stow_package "fish"
@@ -152,6 +153,7 @@ stow_package "ghostty"
 stow_package "tmux"
 stow_package "nvim"
 stow_package "aerospace"
+stow_package "starship"
 stow_package_no_folding "pi"
 
 # ── 4. Fish as default shell ────────────────────────────
