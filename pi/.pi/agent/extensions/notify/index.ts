@@ -13,9 +13,29 @@ function sendNotification(title: string, message: string) {
 
 export default function (pi: ExtensionAPI) {
   // Auto-notify when agent finishes a task
-  pi.on("agent_end", async () => {
+  pi.on("agent_end", async (event) => {
     try {
-      sendNotification("Pi", "Task completed");
+      let summary = "Task completed";
+      const messages = event.messages ?? [];
+      // Find last assistant message and extract text
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i];
+        if (msg.role === "assistant" && Array.isArray(msg.content)) {
+          const textParts = msg.content
+            .filter((b: any) => b.type === "text")
+            .map((b: any) => b.text)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (textParts.length > 0) {
+            summary = textParts.length > 100
+              ? textParts.slice(0, 100) + "…"
+              : textParts;
+            break;
+          }
+        }
+      }
+      sendNotification("Pi", summary);
     } catch {}
   });
 
