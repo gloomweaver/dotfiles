@@ -3,7 +3,22 @@ import { Type } from "@sinclair/typebox";
 import { Text } from "@mariozechner/pi-tui";
 import { execSync } from "node:child_process";
 
+function sendNotification(title: string, message: string) {
+  const t = title.replace(/"/g, '\\"');
+  const m = message.replace(/"/g, '\\"');
+  execSync(
+    `osascript -e 'display notification "${m}" with title "${t}"'`
+  );
+}
+
 export default function (pi: ExtensionAPI) {
+  // Auto-notify when agent finishes a task
+  pi.on("agent_end", async () => {
+    try {
+      sendNotification("Pi", "Task completed");
+    } catch {}
+  });
+
   pi.registerTool({
     name: "notify",
     label: "Notify",
@@ -14,12 +29,8 @@ export default function (pi: ExtensionAPI) {
       message: Type.String({ description: "Notification body" }),
     }),
     async execute(_toolCallId, params) {
-      const title = params.title.replace(/"/g, '\\"');
-      const message = params.message.replace(/"/g, '\\"');
       try {
-        execSync(
-          `osascript -e 'display notification "${message}" with title "${title}"'`
-        );
+        sendNotification(params.title, params.message);
         return {
           content: [{ type: "text", text: `Notification sent: ${params.title}` }],
         };
