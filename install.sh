@@ -208,36 +208,35 @@ else
     ok "TPM installed — press Ctrl+b I inside tmux to install plugins"
 fi
 
-# ── 7. asdf + Node.js LTS ────────────────────────────────
-step "asdf + Node.js"
+# ── 7. asdf ──────────────────────────────────────────────
+step "asdf"
 if command_exists asdf; then
     ok "asdf already installed"
 else
     warn "asdf not found — it should have been installed via Brewfile"
 fi
 
-if asdf list nodejs 2>/dev/null | grep -q lts; then
-    ok "Node.js LTS already installed"
+# ── 8. VitePlus ──────────────────────────────────────────
+step "VitePlus"
+if command_exists vp; then
+    ok "VitePlus already installed"
 else
-    info "Adding asdf nodejs plugin..."
-    asdf plugin add nodejs 2>/dev/null || true
-    info "Installing Node.js LTS (this may take a minute)..."
-    asdf install nodejs lts
-    asdf set --home nodejs lts
-    ok "Node.js LTS installed"
+    info "Installing VitePlus..."
+    curl -fsSL https://vite.plus | bash
+    ok "VitePlus installed"
 fi
 
-# ── 8. Pi coding agent ───────────────────────────────────
+# ── 9. Pi coding agent ───────────────────────────────────
 step "Pi coding agent"
 if command_exists pi; then
     ok "Pi already installed ($(pi --version 2>/dev/null || echo 'unknown version'))"
 else
-    info "Installing pi coding agent..."
-    npm install -g @mariozechner/pi-coding-agent
+    info "Installing pi coding agent via VitePlus..."
+    vp install -g @mariozechner/pi-coding-agent
     ok "Pi installed"
 fi
 
-# ── 9. Pi extension dependencies ─────────────────────────
+# ── 10. Pi extension dependencies ────────────────────────
 step "Pi extensions"
 if [[ -f "$HOME/.pi/agent/extensions/webfetch/package.json" ]]; then
     info "Installing webfetch dependencies..."

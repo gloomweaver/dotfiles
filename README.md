@@ -20,8 +20,10 @@ The installer is **idempotent** — safe to re-run at any time.
 4. Sets fish as default shell
 5. Installs Fisher (fish plugin manager) + plugins
 6. Installs TPM (tmux plugin manager)
-7. Installs pi extension dependencies (webfetch)
-8. Optionally applies macOS defaults (keyboard, Finder, Dock)
+7. Installs VitePlus
+8. Installs Pi via `vp install -g @mariozechner/pi-coding-agent`
+9. Installs pi extension dependencies (webfetch)
+10. Optionally applies macOS defaults (keyboard, Finder, Dock)
 
 ## Structure
 
@@ -81,7 +83,7 @@ Default shell. Config: `fish/.config/fish/config.fish`
 
 ### PATH (configured automatically)
 
-Homebrew, asdf, Go, Rust, Bun, pnpm, NVM, Coursier, OrbStack, `~/.local/bin`
+Homebrew, asdf, Go, Rust, Bun, pnpm, NVM, Coursier, OrbStack, VitePlus, `~/.local/bin`
 
 ---
 
