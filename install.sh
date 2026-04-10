@@ -278,6 +278,10 @@ if [[ "$(uname)" == "Darwin" ]]; then
         defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
         defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool false
 
+        # Window behavior: disable animations, allow drag from anywhere with Ctrl+Cmd
+        defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool false
+        defaults write NSGlobalDomain NSWindowShouldDragOnGesture -bool true
+
         # Screenshots: png, no shadow
         defaults write com.apple.screencapture type -string "png"
         defaults write com.apple.screencapture disable-shadow -bool true
