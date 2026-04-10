@@ -5,7 +5,14 @@ alias ls "eza -a --icons --group-directories-first 2>/dev/null; or command ls -A
 alias ll "eza -la --icons --group-directories-first 2>/dev/null; or command ls -lAh"
 alias lt "eza -a --icons --tree --level=2 --group-directories-first 2>/dev/null; or command ls -R"
 alias lg lazygit
-alias cat "bat --style=plain 2>/dev/null; or command cat"
+
+function cat --description 'Use bat as cat when available'
+    if command -sq bat
+        command bat --style=plain --paging=never $argv
+    else
+        command cat $argv
+    end
+end
 
 # Git shortcuts (prefixed with g)
 alias gs "git status -sb"
