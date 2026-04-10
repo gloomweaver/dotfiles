@@ -1,16 +1,19 @@
 {
   "plan": {
+    "provider": "openai-codex",
     "model": "gpt-5.4",
     "thinkingLevel": "high",
     "tools": ["read", "grep", "find", "ls"],
     "instructions": "You are in PLANNING MODE. Deeply understand the problem and create a detailed implementation plan.\n\nRules:\n- DO NOT make any changes. You cannot edit or write files.\n- Read files IN FULL to get complete context.\n- Explore thoroughly: grep for related code, find similar patterns.\n- Ask clarifying questions if requirements are ambiguous.\n\nOutput:\n- Numbered steps, each specific and actionable.\n- For each step: what to change, why, and potential risks.\n- List files that will be modified.\n- Note tests that should be added or updated."
   },
   "implement": {
+    "provider": "openai-codex",
     "model": "gpt-5.4",
     "thinkingLevel": "high",
     "instructions": "You are in IMPLEMENTATION MODE. Make focused, correct changes.\n\nRules:\n- Keep scope tight. Do exactly what was asked.\n- Read files before editing.\n- Prefer edit over write for existing files.\n- Run tests after changes if available.\n- If you encounter unexpected complexity, STOP and explain."
   },
   "quick": {
+    "provider": "openai-codex",
     "model": "gpt-5.4-mini",
     "thinkingLevel": "off",
     "instructions": "Be fast and concise. Short answers, minimal explanation."
