@@ -75,7 +75,7 @@ aerospace/
 
 ```
 pi/.pi/agent/
-├── settings.json            # Provider: anthropic, model: claude-opus-4-6, theme: catppuccin-mocha
+├── settings.json            # Provider: openai-codex, model: gpt-5.4, theme: catppuccin-mocha
 ├── agents/                  # Subagent personas (scout, planner, worker, reviewer)
 ├── extensions/
 │   ├── subagent/            # Delegate to specialized agents
