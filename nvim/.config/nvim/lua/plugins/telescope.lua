@@ -17,6 +17,11 @@ return {
 
     telescope.setup({
       defaults = {
+        preview = {
+          -- Telescope's built-in treesitter previewer is incompatible with the
+          -- installed nvim-treesitter API on this setup, so disable it here.
+          treesitter = false,
+        },
         -- What to ignore when searching
         file_ignore_patterns = {
           "node_modules/", ".git/", "dist/", "build/",
@@ -39,6 +44,26 @@ return {
     })
 
     telescope.load_extension("fzf")
+
+    -- Ensure preview windows get proper filetype + highlighting
+    vim.api.nvim_create_autocmd("User", {
+      pattern = "TelescopePreviewerLoaded",
+      callback = function()
+        local buf = vim.api.nvim_get_current_buf()
+        local path = vim.api.nvim_buf_get_name(buf)
+
+        if path ~= "" then
+          local ft = vim.filetype.match({ filename = path, buf = buf })
+          if ft and ft ~= "" then
+            vim.bo[buf].filetype = ft
+            vim.bo[buf].syntax = ft
+          end
+        end
+
+        -- Prefer treesitter, but let regex syntax highlighting work as fallback
+        pcall(vim.treesitter.start, buf)
+      end,
+    })
 
     -- Keymaps
     local builtin = require("telescope.builtin")
