@@ -10,23 +10,6 @@ vim.g.maplocalleader = " "
 -- ── Core options ────────────────────────────────────────
 local opt = vim.opt
 
--- Workaround: tmux doesn't support colored underlines (CSI 58) properly,
--- which causes raw escape codes to leak. Disable underline styling in tmux.
-if vim.env.TMUX then
-  vim.api.nvim_create_autocmd("ColorScheme", {
-    callback = function()
-      -- Remove sp (special/underline color) from diagnostic highlights
-      for _, name in ipairs({ "DiagnosticUnderlineError", "DiagnosticUnderlineWarn", "DiagnosticUnderlineInfo", "DiagnosticUnderlineHint" }) do
-        local hl = vim.api.nvim_get_hl(0, { name = name })
-        hl.sp = nil
-        hl.undercurl = nil
-        hl.underline = true
-        vim.api.nvim_set_hl(0, name, hl)
-      end
-    end,
-  })
-end
-
 -- Line numbers
 opt.number = true            -- show line numbers
 opt.relativenumber = true    -- relative to cursor (makes j/k jumps easy: 5j, 12k)
