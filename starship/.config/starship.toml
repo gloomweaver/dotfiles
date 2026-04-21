@@ -1,2 +1,10 @@
 # Increase timeout for slow asdf shims (default: 500ms)
 command_timeout = 2000
+
+[character]
+success_symbol = "[I ❯](bold green)"
+error_symbol = "[I ❯](bold red)"
+vimcmd_symbol = "[N ❮](bold blue)"
+vimcmd_visual_symbol = "[V ❮](bold yellow)"
+vimcmd_replace_symbol = "[R ❮](bold purple)"
+vimcmd_replace_one_symbol = "[R ❮](bold purple)"
