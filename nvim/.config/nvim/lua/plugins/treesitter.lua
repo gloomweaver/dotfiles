@@ -8,6 +8,7 @@ return {
     -- Add languages as you need them
     local ensure_installed = {
       "lua",
+      "c", "cpp",
       "javascript", "typescript", "tsx",
       "go", "gomod", "gosum",
       "rust",

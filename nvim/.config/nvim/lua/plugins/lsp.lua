@@ -31,6 +31,7 @@ return {
           "bashls",         -- Bash
           "elixirls",       -- Elixir
           "tailwindcss",    -- Tailwind CSS
+          "clangd",         -- C/C++
         },
       })
     end,
@@ -180,6 +181,9 @@ return {
           },
         },
       })
+      vim.lsp.config("clangd", {
+        capabilities = capabilities,
+      })
       vim.lsp.config("pyright", { capabilities = capabilities })
       vim.lsp.config("jsonls", { capabilities = capabilities })
       vim.lsp.config("yamlls", { capabilities = capabilities })
@@ -195,6 +199,7 @@ return {
         "ts_ls",
         "gopls",
         "rust_analyzer",
+        "clangd",
         "pyright",
         "jsonls",
         "yamlls",
