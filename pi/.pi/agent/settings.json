@@ -1,11 +1,9 @@
 {
-  "lastChangelogVersion": "0.68.0",
+  "lastChangelogVersion": "0.73.0",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.4",
   "defaultThinkingLevel": "high",
   "theme": "catppuccin-mocha",
   "hideThinkingBlock": false,
-  "packages": [
-    "npm:pi-kimi-coder"
-  ]
+  "packages": []
 }
