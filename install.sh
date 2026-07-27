@@ -246,10 +246,22 @@ else
     info "Skipping (pi extensions not found)"
 fi
 
-# ── 10. Create ~/.local/bin ──────────────────────────────
+# ── 11. Pi loader workaround for VitePlus installs ──────
+step "Pi loader workaround"
+if [[ -x "$HOME/.pi/agent/bin/fix-vite-plus-pi-loader.sh" ]]; then
+    if "$HOME/.pi/agent/bin/fix-vite-plus-pi-loader.sh"; then
+        ok "Pi loader workaround applied"
+    else
+        warn "Pi loader workaround failed — extensions may not load until fixed manually"
+    fi
+else
+    warn "Pi loader workaround script not found at ~/.pi/agent/bin/fix-vite-plus-pi-loader.sh"
+fi
+
+# ── 12. Create ~/.local/bin ──────────────────────────────
 mkdir -p "$HOME/.local/bin"
 
-# ── 11. macOS defaults ──────────────────────────────────
+# ── 13. macOS defaults ──────────────────────────────────
 if [[ "$(uname)" == "Darwin" ]]; then
     step "macOS defaults"
     if confirm "Apply recommended macOS defaults? (keyboard, Finder, Dock)" "y"; then

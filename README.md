@@ -23,7 +23,8 @@ The installer is **idempotent** — safe to re-run at any time.
 7. Installs VitePlus
 8. Installs Pi via `vp install -g @mariozechner/pi-coding-agent`
 9. Installs pi extension dependencies (webfetch)
-10. Optionally applies macOS defaults (keyboard, Finder, Dock)
+10. Applies the VitePlus pi extension-loader workaround
+11. Optionally applies macOS defaults (keyboard, Finder, Dock)
 
 ## Structure
 
@@ -261,6 +262,14 @@ Theme: Catppuccin Mocha (matches everything else).
 | **webfetch** | Fetch and convert web pages to markdown |
 | **notify** | macOS native notifications |
 
+If a VitePlus update breaks pi extension loading, run:
+
+```bash
+~/.pi/agent/bin/fix-vite-plus-pi-loader.sh
+```
+
+`install.sh` runs this automatically.
+
 ### Agents (for subagent)
 
 | Agent | Model | Role |
@@ -304,4 +313,10 @@ brew bundle dump --file=Brewfile.mac --force
 ```bash
 cd ~/dotfiles
 ./install.sh
+```
+
+### Re-apply the pi VitePlus workaround only
+
+```bash
+~/.pi/agent/bin/fix-vite-plus-pi-loader.sh
 ```
