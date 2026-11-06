@@ -29,8 +29,9 @@ test('PASS stays local and does not escalate', async () => {
   const verify = createVerify(ctx, { judge, profile: async () => 'local', append: async r => appended.push(r) });
   await verify({ sessionID: 's', prompt: { text: 'the test passes' } });
   assert.equal(calls.generate.length, 0, 'no cloud call');
-  assert.equal(calls.synthetic.length, 1);
-  assert.match(calls.synthetic[0], /VERDICT: PASS/);
+  assert.equal(calls.synthetic.length, 2, 'reviewing + verdict message');
+  assert.match(calls.synthetic[0], /^\[verify\] Reviewing/);
+  assert.match(calls.synthetic[1], /VERDICT: PASS/);
   assert.equal(appended.length, 1);
   assert.equal(appended[0].verdict, 'PASS');
   assert.equal(appended[0].escalated, false);
@@ -68,9 +69,10 @@ test('judge uncertain in local preset reports UNCERTAIN without escalation', asy
   const verify = createVerify(ctx, { judge, profile: async () => 'local', append: async r => appended.push(r) });
   await verify({ sessionID: 's', prompt: { text: 'some criteria' } });
   assert.equal(calls.generate.length, 0, 'local preset must not escalate');
-  assert.match(calls.synthetic[0], /VERDICT: UNCERTAIN/);
+  assert.match(calls.synthetic[1], /VERDICT: UNCERTAIN/);
   assert.equal(appended[0].verdict, 'UNCERTAIN');
   assert.equal(appended[0].escalated, false);
+  assert.equal(appended[0].reason, 'offline');
 });
 
 test('judge uncertain in mixed preset escalates to cloud', async () => {
@@ -90,17 +92,37 @@ test('empty criteria throws', async () => {
   await assert.rejects(() => verify({ sessionID: 's', prompt: { text: '   ' } }), /requires acceptance criteria/);
 });
 
-test('append records verdict, failures, uncertain, escalated and turns', async () => {
+test('placeholder criteria throws before the judge runs', async () => {
+  const { ctx, calls } = makeCtx('local');
+  let judged = false;
+  const verify = createVerify(ctx, { judge: async () => { judged = true; return { answers: {} }; }, profile: async () => 'local' });
+  await assert.rejects(() => verify({ sessionID: 's', prompt: { text: '<criteria>' } }), /placeholder/);
+  assert.equal(judged, false, 'judge must not be called on placeholder criteria');
+  assert.equal(calls.synthetic.length, 0, 'no reviewing message when criteria are invalid');
+});
+
+test('surrounding quotes are stripped from criteria', async () => {
   const { ctx } = makeCtx('local');
-  const judge = async () => ({ answers: { rule_1: failAnswer() } });
+  const judge = async () => ({ answers: { rule_1: passAnswer() } });
   const appended = [];
   const verify = createVerify(ctx, { judge, profile: async () => 'local', append: async r => appended.push(r) });
+  await verify({ sessionID: 's', prompt: { text: '"must pass the tests"' } });
+  assert.equal(appended[0].task, 'must pass the tests');
+});
+
+test('append records verdict, failures, uncertain, escalated, turns, probability', async () => {
+  const { ctx } = makeCtx('cloud');
+  const judge = async () => ({ answers: { rule_1: failAnswer() } });
+  const appended = [];
+  const verify = createVerify(ctx, { judge, profile: async () => 'cloud', append: async r => appended.push(r) });
   await verify({ sessionID: 's', prompt: { text: 'must not ignore --indent' } });
   assert.equal(appended.length, 1);
   const r = appended[0];
   assert.equal(r.verdict, 'FAIL');
   assert.deepEqual(r.failures, ['rule_1']);
   assert.deepEqual(r.uncertain, []);
-  assert.equal(r.escalated, false);
+  assert.equal(r.escalated, true);
   assert.equal(r.turns, messages.length);
+  assert.equal(r.model, 'openrouter/router/build');
+  assert.deepEqual(r.probabilities, { rule_1: 0.05 });
 });

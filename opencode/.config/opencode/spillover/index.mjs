@@ -29,8 +29,11 @@ export function createVerify(ctx, deps = {}) {
   const { judge = judgeLocal, append = appendRun, profile = id => profileFor(ctx, id) } = deps;
   return async ({ sessionID, prompt }) => {
     const messages = await ctx.session.context({ sessionID });
-    const criteria = (prompt?.text || '').trim();
+    const criteria = (prompt?.text || '').trim().replace(/^["']|["']$/g, '').trim();
     if (!criteria) throw new Error('/verify requires acceptance criteria: pass them as the command argument, e.g. /verify "the tests must not ignore --verbose".');
+    const firstLine = criteria.split('\n')[0].trim();
+    if (/<[^>]+>/.test(firstLine)) throw new Error('/verify needs real acceptance criteria, not a placeholder like <criteria>. List each requirement on its own line.');
+    await ctx.session.synthetic({ sessionID, text: `[verify] Reviewing "${firstLine}" (${criteria.split('\n').filter(s => s.trim()).length} criteria; judge will escalate to cloud if uncertain)…` });
     const recent = messages.slice(-8).map(m => {
       const text = (m.content || []).map(p => (p.text || '')).filter(Boolean).join('\n');
       return text ? text.slice(0, 4000) : '';
@@ -56,10 +59,15 @@ export function createVerify(ctx, deps = {}) {
     // { answers } on success. Compose a verdict from probabilities only when
     // it actually answered.
     let verdict;
+    let probabilities;
     if (local.uncertain) {
       verdict = { verdict: 'UNCERTAIN', failures: [], uncertain: Object.keys(questions) };
     } else {
       verdict = composeVerdict(questions, local.answers);
+      probabilities = {};
+      for (const [name, a] of Object.entries(local.answers)) {
+        if (a?.type === 'noul' && Number.isFinite(a.noul)) probabilities[name] = a.noul;
+      }
     }
 
     const escalate = verdict.verdict !== 'PASS' && preset !== 'local';
@@ -78,16 +86,22 @@ export function createVerify(ctx, deps = {}) {
       await ctx.session.synthetic({ sessionID, text: formatVerdict({ ...verdict, backend: 'local', escalated: false }) });
     }
 
-    // Record the run for later (not yet) routing decisions.
+    // Record the run for later (not yet) routing decisions. `reason` records a
+    // judge transport/schema failure; `probabilities` records the raw local
+    // P(true) per check so UNCERTAIN causes are distinguishable later.
     await append({
-      task: criteria.split('\n')[0] || 'verify',
+      task: firstLine,
       preset,
-      model: preset === 'local' ? 'ollama/flint:40b' : 'local-router/build',
+      model: preset === 'local' ? 'ollama/flint:40b'
+        : preset === 'mixed' ? 'local-router/build'
+        : `openrouter/router/build`,
       verdict: verdict.verdict,
       failures: verdict.failures,
       uncertain: verdict.uncertain,
       escalated: escalate,
       turns: messages.length,
+      reason: local.reason,
+      probabilities,
     });
   };
 }

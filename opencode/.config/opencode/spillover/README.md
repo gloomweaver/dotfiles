@@ -93,10 +93,16 @@ criteria using a local typed decision model, not a free-text LLM.
   `/verify` escalates a non-PASS local verdict (or a malformed/unknown local
   answer) to the OpenRouter build router; the local preset always stays local
   and reports **UNCERTAIN** as-is.
+- Criteria are passed one requirement per line (surrounding quotes are
+  stripped). Empty criteria and placeholder text like `<criteria>` are
+  rejected before the judge runs; a `[verify] Reviewing…` message is posted
+  first so the run never looks silent.
 - Every run is appended to `verdict.log` (JSONL, gitignored) as
-  `{ts, task, preset, model, verdict, failures, uncertain, escalated, turns}`.
-  This is the evidence base for eventual model routing; it is not used to pick
-  a model today.
+  `{ts, task, preset, model, verdict, failures, uncertain, escalated, turns,
+  reason, probabilities}`. `reason` records judge transport/schema failures;
+  `probabilities` records per-check P(true) so a mid-range UNCERTAIN can be
+  told apart from a judge outage. This is the evidence base for eventual model
+  routing; it is not used to pick a model today.
 
 Validation against the `~/repos/build-compare` corpus (a Go `jsonfmt` with a
 known-good and a known-bad implementation) confirms the local judge flags the

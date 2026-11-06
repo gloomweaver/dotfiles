@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url';
 
 export function logPath() { return fileURLToPath(new URL('./verdict.log', import.meta.url)); }
 
+function isRecord(value) { return value != null && typeof value === 'object' && !Array.isArray(value); }
+
 export async function appendRun(entry) {
   const record = {
     ts: new Date().toISOString(),
@@ -22,6 +24,8 @@ export async function appendRun(entry) {
     uncertain: Array.isArray(entry?.uncertain) ? entry.uncertain : [],
     escalated: !!entry?.escalated,
     turns: Number.isFinite(entry?.turns) ? entry.turns : undefined,
+    reason: entry?.reason != null ? String(entry.reason) : undefined,
+    probabilities: isRecord(entry?.probabilities) ? entry.probabilities : undefined,
     cost: Number.isFinite(entry?.cost) ? entry.cost : undefined,
   };
   await appendFile(logPath(), JSON.stringify(record) + '\n', 'utf8');
