@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAutoverify, sessionSignature, autoverifyEnabled } from './index.mjs';
-import { extractRequest } from './derive.mjs';
+import { extractRequest, qualifyCriteria } from './derive.mjs';
 
 // The autoverify factory lives in index.mjs; re-import the pieces it needs so
 // the tests can stub only the boundary (verify, derive, profile, store, env).
@@ -149,4 +149,24 @@ test('extractRequest returns the first request and the latest follow-up, ignorin
   assert.match(request, /build a thing/);
   assert.match(request, /now make it faster/);
   assert.doesNotMatch(request, /\/verify/);
+});
+
+test('qualifyCriteria rejects boilerplate and meta-noise, falls back to the request', () => {
+  const request = 'integrate the judge into the flow automatically';
+  // Generic stand-in subjects and echo-of-the-prompt noise are dropped.
+  const dropped = qualifyCriteria([
+    'The function returns a value',
+    'The function is called at least once',
+    'Verify that the request outputs JSON only',
+    'Confirm that the program produces the specified JSON data',
+  ], request);
+  assert.equal(dropped.length, 1);
+  assert.match(dropped[0], /integrate the judge into the flow automatically/);
+
+  // Concrete, request-specific criteria survive.
+  const kept = qualifyCriteria([
+    'jsonfmt rejects trailing data after the first JSON value',
+    'jsonfmt prints a one-line error to stderr',
+  ], 'make jsonfmt reject trailing data');
+  assert.equal(kept.length, 2);
 });

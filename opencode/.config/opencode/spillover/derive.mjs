@@ -35,6 +35,35 @@ export function fallbackCriteria(request) {
   return [`The work fulfils this request: ${String(request).replace(/\s+/g, ' ').trim().slice(0, 400)}`];
 }
 
+// A criterion is only useful if it names the request's actual subject, not a
+// generic stand-in. A small local model tends to convert "integrate X into the
+// flow" into "a function returns a string" — pure boilerplate that grades the
+// wrong thing. These filters reject that so the judge falls back to a
+// request-anchored criterion instead of inventing requirements.
+const BOILERPLATE = /\b(the )?(function|code|the program|the app|it|this)\b (returns|is called|does not throw|throws|works|runs|handles|produces)/i;
+// Meta-noise: a small model echoes the derivation prompt's own "output JSON
+// only" phrasing back as if it were a requirement of the task.
+const META_NOISE = /\b(output(?:s)? (json|only)|json (format|only)|produces? (the )?(output|json)|extraneous data|specified (json|data)|matches? the format)\b/i;
+
+function isSpecific(line) {
+  const words = line.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  // Reject one-word or near-empty statements and boilerplate subject templates
+  // and echo-of-the-prompt noise.
+  if (words.length < 4) return false;
+  if (BOILERPLATE.test(line)) return false;
+  if (META_NOISE.test(line)) return false;
+  return true;
+}
+
+export function qualifyCriteria(list, request) {
+  const cleaned = (Array.isArray(list) ? list : [])
+    .filter(s => typeof s === 'string')
+    .map(s => s.replace(/\s+/g, ' ').trim())
+    .filter(s => s.length >= 8 && !/<[^>]+>/.test(s) && isSpecific(s))
+    .slice(0, 5);
+  return cleaned.length ? cleaned : fallbackCriteria(request);
+}
+
 export async function deriveCriteria({ request, model = DERIVE_MODEL, fetchImpl = fetch }) {
   const fallback = fallbackCriteria(request);
   const controller = new AbortController();
@@ -52,7 +81,7 @@ export async function deriveCriteria({ request, model = DERIVE_MODEL, fetchImpl 
         messages: [
           {
             role: 'system',
-            content: 'You turn a software task request into acceptance criteria. Output JSON only: {"criteria": ["...", "..."]}. Give at most 5 criteria. Each one must be a single concrete statement that can be checked as true or false by reading the code, the file changes or the command output. Use only requirements the request actually states or directly implies. Do not invent requirements. Do not use placeholders.',
+            content: 'You are a criteria extractor. Your whole reply must be a JSON object with one key "criteria" whose value is an array of strings. Do not describe your formatting; write only that JSON object.\n\nRules for the strings:\n1. Reuse the concrete nouns, flags, file names, functions and behaviours the request actually names.\n2. Each string is a single behaviour that is checkable as true or false from the code, file changes or command output.\n3. Never invent requirements the request does not state or directly imply.\n4. Never write a criterion about "a function" returning a value or being called unless the request names that specific function and that behaviour. Never paraphrase the request as "the program produces output".\n5. If the request names no concrete behaviour, return one criterion that restates the request as the target.',
           },
           { role: 'user', content: request },
         ],
@@ -61,12 +90,7 @@ export async function deriveCriteria({ request, model = DERIVE_MODEL, fetchImpl 
     if (!response.ok) return fallback;
     const body = await response.json();
     const parsed = JSON.parse(body?.message?.content ?? '');
-    const list = (Array.isArray(parsed?.criteria) ? parsed.criteria : [])
-      .filter(s => typeof s === 'string')
-      .map(s => s.replace(/\s+/g, ' ').trim())
-      .filter(s => s.length >= 8 && !/<[^>]+>/.test(s))
-      .slice(0, 5);
-    return list.length ? list : fallback;
+    return qualifyCriteria(parsed?.criteria, request);
   } catch {
     return fallback;
   } finally {
