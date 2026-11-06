@@ -89,6 +89,12 @@ criteria using a local typed decision model, not a free-text LLM.
   P(satisfied) means the check failed. In code, a violation probability of
   **0.7 or above** fails, below **0.3** passes, and anything in between is
   reported as **UNCERTAIN**.
+- The judge's evidence is the stored transcript **plus** the session's file
+  diff (`ctx.session.diff`). The transcript is assembled from every message
+  shape — user `text`, assistant `content`, and tool results under
+  `state.content` — because reading only `content[].text` silently drops user
+  turns and tool output. The diff answers the "no file/line visible" gap a
+  prose-only feed causes.
 - The local judge never calls the cloud by itself. In cloud/mixed presets,
   `/verify` escalates a non-PASS local verdict (or a malformed/unknown local
   answer) to the OpenRouter build router; the local preset always stays local

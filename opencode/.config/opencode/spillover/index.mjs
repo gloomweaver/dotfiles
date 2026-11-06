@@ -25,6 +25,32 @@ export async function profileFor(ctx, sessionID) {
 // a stubbed judge, run log and profile, and so the plugin registration stays a
 // one-liner. Local preset never escalates; cloud/mixed escalate on non-PASS or
 // judge uncertainty.
+// Flatten one stored session message into its textual evidence. The message
+// shapes are heterogeneous: user messages carry top-level `text`; assistant
+// messages carry `content` (text / reasoning / tool) parts; tool results live
+// under `state.content` — not the message's `content` array. Reading only
+// `content[].text` silently drops user turns and tool output, so this helper
+// handles every shape and returns them in order.
+export function collectTranscript(messages) {
+  const out = [];
+  for (const m of messages || []) {
+    const parts = [];
+    if (typeof m.text === 'string' && m.text.trim()) parts.push(m.text);
+    for (const p of m.content || []) {
+      if (p.type === 'text' || p.type === 'reasoning') { if (typeof p.text === 'string' && p.text.trim()) parts.push(p.text); }
+      else if (p.type === 'tool') {
+        const st = p.state || {};
+        if (typeof st.input === 'string') parts.push(`tool input: ${st.input}`);
+        else if (st.input) parts.push(`tool input: ${JSON.stringify(st.input)}`);
+        for (const c of st.content || []) if (c.type === 'text' && c.text) parts.push(c.text);
+        if (st.error?.message) parts.push(`tool error: ${st.error.message}`);
+      }
+    }
+    if (parts.length) out.push(parts.join('\n'));
+  }
+  return out;
+}
+
 export function createVerify(ctx, deps = {}) {
   const { judge = judgeLocal, append = appendRun, profile = id => profileFor(ctx, id) } = deps;
   return async ({ sessionID, prompt }) => {
@@ -34,11 +60,24 @@ export function createVerify(ctx, deps = {}) {
     const firstLine = criteria.split('\n')[0].trim();
     if (/<[^>]+>/.test(firstLine)) throw new Error('/verify needs real acceptance criteria, not a placeholder like <criteria>. List each requirement on its own line.');
     await ctx.session.synthetic({ sessionID, text: `[verify] Reviewing "${firstLine}" (${criteria.split('\n').filter(s => s.trim()).length} criteria; judge will escalate to cloud if uncertain)…` });
-    const recent = messages.slice(-8).map(m => {
-      const text = (m.content || []).map(p => (p.text || '')).filter(Boolean).join('\n');
-      return text ? text.slice(0, 4000) : '';
-    }).filter(Boolean).join('\n\n---\n\n');
-    if (!recent) throw new Error('No recent session text to verify.');
+
+    // Evidence: the stored transcript (prose + tool output) plus the session's
+    // file diff. ctx.session.diff returns { file, patch, additions, deletions }
+    // when the host can produce one; it answers the "no file/line visible"
+    // complaint that a prose-only feed causes.
+    const transcript = collectTranscript(messages);
+    let diff = '';
+    try { diff = await ctx.session.diff({ sessionID }); } catch { diff = undefined; }
+    let diffText = '';
+    if (Array.isArray(diff) && diff.length) {
+      diffText = diff.map(d => `--- ${d.file} (+${d.additions}/-${d.deletions})\n${d.patch}`).join('\n\n');
+    }
+
+    const evidence = [
+      diffText && `Files changed:\n${diffText}`,
+      `Recent session transcript:\n${transcript.slice(-16).join('\n\n---\n\n')}`,
+    ].filter(Boolean).join('\n\n====\n\n');
+    if (!evidence.trim()) throw new Error('No session evidence to verify: the transcript and file diff are both empty.');
 
     const acceptLines = criteria.split('\n').map(s => s.trim()).filter(Boolean);
     const questions = {};
@@ -53,7 +92,7 @@ export function createVerify(ctx, deps = {}) {
     });
 
     const preset = await profile(sessionID);
-    const local = await judge({ state: `Acceptance criteria:\n${criteria}\n\nRecent session transcript:\n${recent}`, questions });
+    const local = await judge({ state: `Acceptance criteria:\n${criteria}\n\n${evidence}`, questions });
 
     // The local judge returns { uncertain } on transport/schema failure or
     // { answers } on success. Compose a verdict from probabilities only when
@@ -73,8 +112,8 @@ export function createVerify(ctx, deps = {}) {
     const escalate = verdict.verdict !== 'PASS' && preset !== 'local';
     if (escalate) {
       const cloudPrompt = local.uncertain
-        ? `You are the fallback reviewer. The local typed judge could not answer. Acceptance criteria:\n${criteria}\n\nRecent session transcript:\n${recent}\n\nAnswer compactly: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix to make first. Do not write code.`
-        : `You are the fallback reviewer. The local typed judge returned ${verdict.verdict}. Local probabilities:\n${renderVerdictForCloud({ questions, answers: local.answers, state: `Acceptance criteria:\n${criteria}\n\nRecent session transcript:\n${recent}` })}\n\nRe-evaluate: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix. Do not write code.`;
+        ? `You are the fallback reviewer. The local typed judge could not answer. Acceptance criteria:\n${criteria}\n\n${evidence}\n\nAnswer compactly: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix to make first. Do not write code.`
+        : `You are the fallback reviewer. The local typed judge returned ${verdict.verdict}. Local probabilities:\n${renderVerdictForCloud({ questions, answers: local.answers, state: `Acceptance criteria:\n${criteria}\n\n${evidence}` })}\n\nRe-evaluate: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix. Do not write code.`;
       const review = await ctx.experimental.generate.text({
         model: { providerID: 'openrouter', id: 'router/build' },
         prompt: cloudPrompt,
@@ -99,7 +138,7 @@ export function createVerify(ctx, deps = {}) {
       failures: verdict.failures,
       uncertain: verdict.uncertain,
       escalated: escalate,
-      turns: messages.length,
+      turns: transcript.length,
       reason: local.reason,
       probabilities,
     });

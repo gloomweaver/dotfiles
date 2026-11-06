@@ -1,15 +1,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createVerify } from './index.mjs';
+import { createVerify, collectTranscript } from './index.mjs';
 
-// Stubbed session with one user turn so there is always "recent" text.
-const messages = [{ role: 'user', content: [{ type: 'text', text: 'did the work' }] }];
+// Heterogeneous stored-message shapes, mirroring the real SessionMessageInfo
+// union: a user message (top-level `text`), an assistant message (content text),
+// and a tool message (result under `state.content`).
+const messages = [
+  { role: 'user', text: 'make jsonfmt reject trailing data' },
+  { role: 'assistant', content: [{ type: 'text', text: 'I updated run()' }] },
+  { role: 'assistant', content: [{ type: 'tool', name: 'bash', state: { input: 'go test ./...', content: [{ type: 'text', text: 'ok  github.com/example/jsonfmt' }] } }] },
+];
+const diff = [{ file: 'main.go', patch: '@@ -1 +1 @@\n+func run() int', additions: 1, deletions: 0 }];
 
 function makeCtx(preset) {
   const calls = { synthetic: [], generate: [] };
   const ctx = {
     session: {
       context: async () => messages,
+      diff: async () => diff,
       synthetic: async args => { calls.synthetic.push(args.text); },
     },
     experimental: { generate: { text: async args => { calls.generate.push(args); return ({ text: 'CLOUD REVIEW' }); } } },
@@ -21,6 +29,22 @@ function makeCtx(preset) {
 // P(defect) = 1 - pTrue. So noul: 0.95 => P(defect)=0.05 => PASS; noul: 0.05 => FAIL.
 const passAnswer = () => ({ type: 'noul', noul: 0.95 });
 const failAnswer = () => ({ type: 'noul', noul: 0.05 });
+
+test('collectTranscript reads user text, assistant text and tool output', () => {
+  const parts = collectTranscript(messages);
+  assert.equal(parts.length, 3);
+  assert.match(parts[0], /make jsonfmt reject trailing data/);
+  assert.match(parts[1], /I updated run\(\)/);
+  assert.match(parts[2], /tool input: go test/);
+  assert.match(parts[2], /ok  github.com\/example\/jsonfmt/);
+});
+
+test('collectTranscript handles empty and missing content without throwing', () => {
+  assert.deepEqual(collectTranscript([]), []);
+  assert.deepEqual(collectTranscript([{ role: 'user', text: '   ' }]), []);
+  assert.deepEqual(collectTranscript([{ role: 'assistant', content: [] }]), []);
+  assert.deepEqual(collectTranscript(undefined), []);
+});
 
 test('PASS stays local and does not escalate', async () => {
   const { ctx, calls } = makeCtx('local');
@@ -48,7 +72,7 @@ test('FAIL in local preset never escalates, stays local', async () => {
   assert.equal(appended[0].escalated, false);
 });
 
-test('FAIL in mixed preset escalates to the cloud reviewer', async () => {
+test('FAIL in mixed preset escalates to the cloud reviewer with diff evidence', async () => {
   const { ctx, calls } = makeCtx('mixed');
   const judge = async () => ({ answers: { rule_1: failAnswer() } });
   const appended = [];
@@ -58,6 +82,8 @@ test('FAIL in mixed preset escalates to the cloud reviewer', async () => {
   assert.equal(calls.generate[0].model.id, 'router/build');
   // failAnswer noul=0.05 with intent 'satisfied' => P(defect)=0.95, above threshold.
   assert.match(calls.generate[0].prompt, /rule_1: P\(true\)=5\.0%/);
+  assert.match(calls.generate[0].prompt, /main\.go/);
+  assert.match(calls.generate[0].prompt, /\+func run\(\)/);
   assert.equal(appended[0].escalated, true);
   assert.equal(appended[0].verdict, 'FAIL');
 });
@@ -122,7 +148,7 @@ test('append records verdict, failures, uncertain, escalated, turns, probability
   assert.deepEqual(r.failures, ['rule_1']);
   assert.deepEqual(r.uncertain, []);
   assert.equal(r.escalated, true);
-  assert.equal(r.turns, messages.length);
+  assert.equal(r.turns, collectTranscript(messages).length);
   assert.equal(r.model, 'openrouter/router/build');
   assert.deepEqual(r.probabilities, { rule_1: 0.05 });
 });
