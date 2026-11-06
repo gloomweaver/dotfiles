@@ -157,6 +157,7 @@ export function createVerify(ctx, deps = {}) {
       reason: local.reason,
       probabilities,
     });
+    return { verdict: verdict.verdict, failures: verdict.failures, uncertain: verdict.uncertain, escalated: escalate };
   };
 }
 
@@ -205,6 +206,13 @@ export function createAutoverify(ctx, deps = {}) {
 
     const slot = state.get(sessionID) ?? { signature: '', rounds: 0, running: false };
     if (slot.running) return;
+    if (slot.settled) {
+      // A previous verdict was a PASS. Only a new user request reopens the gate.
+      const current = await ctx.session.context({ sessionID });
+      const { userTurns } = sessionSignature(current);
+      if (userTurns === slot.userTurns) return;
+      slot.settled = false;
+    }
     slot.running = true;
     state.set(sessionID, slot);
 
@@ -240,6 +248,10 @@ export function createAutoverify(ctx, deps = {}) {
         slot.signature = sig;
         slot.rounds = rounds + 1;
         slot.userTurns = userTurns;
+        // A PASS means the work is done: do not re-grade this trail until the
+        // user sends a new request (userTurns changes). Without this, the
+        // judge's own turns grow toolCalls and the hook re-fires forever.
+        if (result?.verdict === 'PASS') slot.settled = true;
       } catch (error) {
         // A failed verify must never take the session down; leave the state
         // unchanged so the next idle can try again.

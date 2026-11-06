@@ -122,7 +122,8 @@ The judge also runs on its own, with no hand-written criteria.
   hook re-fires when that finishes), in child/subagent sessions, in plan agents,
   when nothing changed (same diff + user-turn + tool-call signature), when there
   is neither a diff nor any tool call, and after **3 rounds without a new
-  request**.
+  request**. A **PASS settles the trail**: the hook does not re-grade it until
+  the user sends a new request, so the judge's own output can't re-trigger it.
 - Criteria come from the same derivation above. A `PASS` or `UNCERTAIN` verdict
   is posted but does **not** wake the agent; a `FAIL` (or a cloud FAIL) is posted
   for the agent to fix, which starts a new round.

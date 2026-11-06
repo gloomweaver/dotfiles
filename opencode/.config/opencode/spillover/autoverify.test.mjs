@@ -163,6 +163,44 @@ test('extractRequest ignores acknowledgements and short replies', () => {
   assert.equal(extractRequest([user('go'), user('/verify'), user('okay'), user('do it')]), '');
 });
 
+test('a PASS settles the session and it re-runs only on a new user request', async () => {
+  const verifyCalls = [];
+  const turnCount = { n: 1 };
+  const ctx = {
+    session: {
+      get: async () => ({ agent: 'build' }),
+      context: async () => [user('build the thing'), assistantTool('bash')],
+      diff: async () => [{ file: 'main.go', patch: 'x', additions: 2, deletions: 0 }],
+    },
+  };
+  const autoverify = createAutoverify(ctx, {
+    derive: async () => ['criterion'],
+    generic: [],
+    verify: async args => { verifyCalls.push(args); return { verdict: 'PASS' }; },
+    profile: async () => 'local',
+    store: { get: () => true, set: () => {} },
+  });
+
+  await autoverify({ sessionID: 's', background: [] }); // 1st -> PASS, settles
+  await autoverify({ sessionID: 's', background: [] }); // same userTurns -> skipped
+  await autoverify({ sessionID: 's', background: [] }); // still skipped
+  assert.equal(verifyCalls.length, 1, 'a PASS must settle the trail');
+
+  // A new user request reopens the gate (simulate via a mutable transcript).
+  turnCount.n = 2;
+  const ctx2 = {
+    session: {
+      get: async () => ({ agent: 'build' }),
+      context: async () => [user('build the thing'), user('now add logging'), assistantTool('bash')],
+      diff: async () => [{ file: 'main.go', patch: 'y', additions: 3, deletions: 0 }],
+    },
+  };
+  ctx.session.context = ctx2.session.context;
+  ctx.session.diff = ctx2.session.diff;
+  await autoverify({ sessionID: 's', background: [] });
+  assert.equal(verifyCalls.length, 2, 'a new request reopens the gate');
+});
+
 test('idle falls back to generic-only criteria when the request is underivable', async () => {
   // A short user turn ("go") and no concrete request: derivation must be
   // skipped entirely and only the generic checks used — otherwise the small
