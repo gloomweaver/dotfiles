@@ -19,12 +19,24 @@ export const GENERIC_CRITERIA = [
 
 const isUser = m => m && (m.type === 'user' || m.role === 'user');
 
-// A one-word reply ("go", "yes", "continue") is an acknowledgement, not a task.
-const isTrivial = s => s.split(/\s+/).length <= 1;
+// A short reply ("go", "yes", "continue", "do it") is an acknowledgement, not a
+// task. A derivable request carries enough words to name a subject and an
+// action; anything shorter hands the 3B model a blank it fills with noise.
+const isTrivial = s => {
+  const words = s.split(/\s+/).filter(Boolean);
+  return words.length <= 3;
+};
+
+// A request is worth deriving from when it names a concrete subject. Short,
+// verb-only instructions ("do it", "go") have no subject to grade against.
+export function hasDerivableRequest(request) {
+  const s = String(request ?? '').trim();
+  return s.length >= 12;
+}
 
 // The task as the user stated it: the first real request, plus the latest
 // substantive follow-up when there is one. Slash commands, acknowledgements and
-// single-word replies are not requests.
+// short replies are not requests.
 export function extractRequest(messages) {
   const users = (messages || [])
     .filter(m => isUser(m) && typeof m.text === 'string' && m.text.trim() && !/^\/\w/.test(m.text.trim()) && !isTrivial(m.text.trim()))

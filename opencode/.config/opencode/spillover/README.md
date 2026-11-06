@@ -106,9 +106,12 @@ criteria using a local typed decision model, not a free-text LLM.
   reads the user's request (first real request plus the latest follow-up),
   sends it to a small local model (`llama3.2:3b` via Ollama's `/api/chat`,
   bypassing the gateway so it runs in every preset) for up to 5 checkable
-  statements, then adds two generic checks (no failing command output left
-  unaddressed; final claims backed by tool output/diff). If derivation fails it
-  falls back to one criterion built from the request itself.
+  statements, then adds two generic checks (the finished state; final claims
+  backed by tool output/diff). If derivation fails it falls back to one
+  criterion built from the request itself. If the request is too short or vague
+  to derive from (an acknowledgement like "go" or "do it"), derivation is
+  skipped and the two generic checks grade the work alone — the small model is
+  never handed a blank it would fill with hallucinations.
 
 ### Automatic judge (`experimental.idle`)
 

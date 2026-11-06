@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { judgeLocal, noul, renderVerdictForCloud } from './judge.mjs';
 import { composeVerdict, formatVerdict } from './verdict.mjs';
 import { appendRun } from './runlog.mjs';
-import { deriveCriteria, extractRequest, GENERIC_CRITERIA, fallbackCriteria } from './derive.mjs';
+import { deriveCriteria, extractRequest, GENERIC_CRITERIA, fallbackCriteria, hasDerivableRequest } from './derive.mjs';
 
 export async function profileFor(ctx, sessionID) {
   const seen = new Set();
@@ -228,7 +228,12 @@ export function createAutoverify(ctx, deps = {}) {
       if (rounds >= 3) return;                                   // stop revising the same trail
       if (!diff?.length && toolCalls === 0) return;              // no work done yet
 
-      const criteria = [...await derive({ request }), ...generic];
+      // Derive only when the request is substantial; a short/vague request
+      // hands the small derivation model a blank it fills with hallucinations
+      // ("the request is a valid HTTP request"). Grade with the generic checks
+      // alone when there is nothing concrete to derive from.
+      const derived = hasDerivableRequest(request) ? await derive({ request }) : [];
+      const criteria = [...derived, ...generic];
       let result;
       try {
         result = await verify({ sessionID, criteria, resume: false, source: 'idle' });
@@ -331,7 +336,8 @@ export default Plugin.define({
         const messages = await ctx.session.context({ sessionID: input.sessionID });
         const request = extractRequest(messages);
         if (!request) throw new Error('/verify needs a request to derive criteria from: ask for the work first, or pass explicit criteria.');
-        const criteria = [...await deriveCriteria({ request }), ...GENERIC_CRITERIA];
+        const derived = hasDerivableRequest(request) ? await deriveCriteria({ request }) : [];
+        const criteria = [...derived, ...GENERIC_CRITERIA];
         return createVerify(ctx)({ sessionID: input.sessionID, criteria, source: 'verify' });
       },
     }));

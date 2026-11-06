@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createAutoverify, sessionSignature, autoverifyEnabled } from './index.mjs';
-import { extractRequest, qualifyCriteria } from './derive.mjs';
+import { extractRequest, qualifyCriteria, hasDerivableRequest } from './derive.mjs';
 
 // The autoverify factory lives in index.mjs; re-import the pieces it needs so
 // the tests can stub only the boundary (verify, derive, profile, store, env).
@@ -142,16 +142,16 @@ test('stops after 3 rounds without a new user request', async () => {
 
 test('extractRequest returns the first request and the latest follow-up, ignoring slash commands', () => {
   const request = extractRequest([
-    user('build a thing'),
+    user('build a small cli tool'),
     user('/verify does not count'),
-    user('now make it faster'),
+    user('now make it print JSON output'),
   ]);
-  assert.match(request, /build a thing/);
-  assert.match(request, /now make it faster/);
+  assert.match(request, /build a small cli tool/);
+  assert.match(request, /now make it print JSON output/);
   assert.doesNotMatch(request, /\/verify/);
 });
 
-test('extractRequest ignores acknowledgements and single-word replies', () => {
+test('extractRequest ignores acknowledgements and short replies', () => {
   const request = extractRequest([
     user('integrate the judge into the flow automatically'),
     user('go'),
@@ -160,7 +160,41 @@ test('extractRequest ignores acknowledgements and single-word replies', () => {
   assert.doesNotMatch(request, /Follow-up request/);
 
   // With no substantive request at all, it returns empty.
-  assert.equal(extractRequest([user('go'), user('/verify'), user('okay')]), '');
+  assert.equal(extractRequest([user('go'), user('/verify'), user('okay'), user('do it')]), '');
+});
+
+test('idle falls back to generic-only criteria when the request is underivable', async () => {
+  // A short user turn ("go") and no concrete request: derivation must be
+  // skipped entirely and only the generic checks used — otherwise the small
+  // model invents criteria ("is the request a valid HTTP request").
+  const ctx = {
+    session: {
+      get: async () => ({ agent: 'build' }),
+      context: async () => [user('go'), assistantTool('bash')],
+      diff: async () => [{ file: 'main.go', patch: 'x', additions: 2, deletions: 0 }],
+    },
+  };
+  const deriveCalls = [];
+  const verifyCalls = [];
+  const autoverify = createAutoverify(ctx, {
+    derive: async args => { deriveCalls.push(args); return ['hallucinated']; },
+    generic: ['generic-one', 'generic-two'],
+    verify: async args => { verifyCalls.push(args); return { ok: true }; },
+    profile: async () => 'local',
+    store: { get: () => true, set: () => {} },
+  });
+  await autoverify({ sessionID: 's', background: [] });
+  assert.equal(deriveCalls.length, 0, 'must not call the derivation model for a vague request');
+  assert.equal(verifyCalls.length, 1);
+  assert.deepEqual(verifyCalls[0].criteria, ['generic-one', 'generic-two']);
+});
+
+test('hasDerivableRequest rejects short and vague requests', () => {
+  assert.equal(hasDerivableRequest('integrate the judge into the flow'), true);
+  assert.equal(hasDerivableRequest('do it'), false);
+  assert.equal(hasDerivableRequest('go'), false);
+  assert.equal(hasDerivableRequest(''), false);
+  assert.equal(hasDerivableRequest('make it work please'), true);
 });
 
 test('qualifyCriteria rejects boilerplate and meta-noise, falls back to the request', () => {
