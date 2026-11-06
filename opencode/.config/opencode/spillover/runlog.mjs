@@ -18,6 +18,7 @@ export async function appendRun(entry) {
     ts: new Date().toISOString(),
     task: String(entry?.task ?? '').slice(0, 200),
     preset: String(entry?.preset ?? 'local'),
+    source: entry?.source != null ? String(entry.source) : 'verify',
     model: String(entry?.model ?? ''),
     verdict: String(entry?.verdict ?? 'UNCERTAIN'),
     failures: Array.isArray(entry?.failures) ? entry.failures : [],

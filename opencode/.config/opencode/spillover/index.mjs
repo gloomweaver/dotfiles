@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { judgeLocal, noul, renderVerdictForCloud } from './judge.mjs';
 import { composeVerdict, formatVerdict } from './verdict.mjs';
 import { appendRun } from './runlog.mjs';
+import { deriveCriteria, extractRequest, GENERIC_CRITERIA, fallbackCriteria } from './derive.mjs';
 
 export async function profileFor(ctx, sessionID) {
   const seen = new Set();
@@ -51,15 +52,24 @@ export function collectTranscript(messages) {
   return out;
 }
 
+// Normalize an acceptance-criteria payload into a list of clean lines, or
+// throw when nothing usable is given. Accepts either the raw command text or an
+// already-derived list of criteria.
+export function normalizeCriteria(criteria) {
+  const lines = (Array.isArray(criteria) ? criteria : String(criteria ?? '').replace(/^["']|["']$/g, '').split('\n'))
+    .map(s => typeof s === 'string' ? s.trim() : '')
+    .filter(s => s && !/<[^>]+>/.test(s));
+  if (!lines.length) throw new Error('No acceptance criteria to verify against: provide them explicitly, or supply a request from which they can be derived.');
+  return lines;
+}
+
 export function createVerify(ctx, deps = {}) {
   const { judge = judgeLocal, append = appendRun, profile = id => profileFor(ctx, id) } = deps;
-  return async ({ sessionID, prompt }) => {
+  return async ({ sessionID, prompt, criteria, resume = false, source = '' }) => {
     const messages = await ctx.session.context({ sessionID });
-    const criteria = (prompt?.text || '').trim().replace(/^["']|["']$/g, '').trim();
-    if (!criteria) throw new Error('/verify requires acceptance criteria: pass them as the command argument, e.g. /verify "the tests must not ignore --verbose".');
-    const firstLine = criteria.split('\n')[0].trim();
-    if (/<[^>]+>/.test(firstLine)) throw new Error('/verify needs real acceptance criteria, not a placeholder like <criteria>. List each requirement on its own line.');
-    await ctx.session.synthetic({ sessionID, text: `[verify] Reviewing "${firstLine}" (${criteria.split('\n').filter(s => s.trim()).length} criteria; judge will escalate to cloud if uncertain)…` });
+    const lines = normalizeCriteria(criteria ?? prompt?.text);
+    const firstLine = lines[0];
+    await ctx.session.synthetic({ sessionID, text: `[verify] Reviewing "${firstLine}" (${lines.length} criteria; judge will escalate to cloud if uncertain)…` });
 
     // Evidence: the stored transcript (prose + tool output) plus the session's
     // file diff. ctx.session.diff returns { file, patch, additions, deletions }
@@ -79,9 +89,8 @@ export function createVerify(ctx, deps = {}) {
     ].filter(Boolean).join('\n\n====\n\n');
     if (!evidence.trim()) throw new Error('No session evidence to verify: the transcript and file diff are both empty.');
 
-    const acceptLines = criteria.split('\n').map(s => s.trim()).filter(Boolean);
     const questions = {};
-    acceptLines.forEach((line, i) => {
+    lines.forEach((line, i) => {
       questions[`rule_${i + 1}`] = {
         ...noul(
           `Does the work satisfy this acceptance criterion? "${line}"`,
@@ -91,8 +100,9 @@ export function createVerify(ctx, deps = {}) {
       };
     });
 
+    const criteriaText = lines.join('\n');
     const preset = await profile(sessionID);
-    const local = await judge({ state: `Acceptance criteria:\n${criteria}\n\n${evidence}`, questions });
+    const local = await judge({ state: `Acceptance criteria:\n${criteriaText}\n\n${evidence}`, questions });
 
     // The local judge returns { uncertain } on transport/schema failure or
     // { answers } on success. Compose a verdict from probabilities only when
@@ -110,19 +120,23 @@ export function createVerify(ctx, deps = {}) {
     }
 
     const escalate = verdict.verdict !== 'PASS' && preset !== 'local';
+    // The failed criteria use the human's own words (not rule_1), so the
+    // assistant — and the cloud reviewer — see exactly what the work must fix.
+    const failedText = verdict.failures.map(name => lines[Number(name.slice(5)) - 1] ?? `check ${name}`).join('\n- ');
+    const verdictText = formatVerdict({ ...verdict, backend: 'local', escalated: false })
+      + (verdict.failures.length ? `\n[verify] Unmet:\n- ${failedText}` : '');
+
     if (escalate) {
       const cloudPrompt = local.uncertain
-        ? `You are the fallback reviewer. The local typed judge could not answer. Acceptance criteria:\n${criteria}\n\n${evidence}\n\nAnswer compactly: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix to make first. Do not write code.`
-        : `You are the fallback reviewer. The local typed judge returned ${verdict.verdict}. Local probabilities:\n${renderVerdictForCloud({ questions, answers: local.answers, state: `Acceptance criteria:\n${criteria}\n\n${evidence}` })}\n\nRe-evaluate: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix. Do not write code.`;
+        ? `You are the fallback reviewer. The local typed judge could not answer. Acceptance criteria:\n${criteriaText}\n\n${evidence}\n\nAnswer compactly: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix to make first. Do not write code.`
+        : `You are the fallback reviewer. The local typed judge returned ${verdict.verdict}. Local probabilities:\n${renderVerdictForCloud({ questions, answers: local.answers, state: `Acceptance criteria:\n${criteriaText}\n\n${evidence}` })}\n\nRe-evaluate: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix. Do not write code.`;
       const review = await ctx.experimental.generate.text({
         model: { providerID: 'openrouter', id: 'router/build' },
         prompt: cloudPrompt,
       });
-      await ctx.session.synthetic({ sessionID, text: `[verify] Cloud review of "${criteria}":\n${review.text}` });
-    } else if (local.uncertain) {
-      await ctx.session.synthetic({ sessionID, text: formatVerdict({ ...verdict, backend: 'local', escalated: false, reason: local.reason }) });
+      await ctx.session.synthetic({ sessionID, text: `[verify] Cloud review of "${firstLine}":\n${review.text}`, resume });
     } else {
-      await ctx.session.synthetic({ sessionID, text: formatVerdict({ ...verdict, backend: 'local', escalated: false }) });
+      await ctx.session.synthetic({ sessionID, text: verdictText, resume });
     }
 
     // Record the run for later (not yet) routing decisions. `reason` records a
@@ -131,6 +145,7 @@ export function createVerify(ctx, deps = {}) {
     await append({
       task: firstLine,
       preset,
+      source,
       model: preset === 'local' ? 'ollama/flint:40b'
         : preset === 'mixed' ? 'local-router/build'
         : `openrouter/router/build`,
@@ -145,10 +160,109 @@ export function createVerify(ctx, deps = {}) {
   };
 }
 
+// Count the user turns and tool calls in the stored transcript; both are read
+// without relying on the assistant's own prose, so the judge's own synthetic
+// messages can never change the signature.
+export function sessionSignature(messages) {
+  let userTurns = 0;
+  let toolCalls = 0;
+  for (const m of messages || []) {
+    if ((m.type === 'user' || m.role === 'user') && typeof m.text === 'string' && m.text.trim()) userTurns += 1;
+    for (const p of m.content || []) if (p.type === 'tool') toolCalls += 1;
+  }
+  return { userTurns, toolCalls };
+}
+
+function diffSignature(diff) {
+  if (!Array.isArray(diff) || !diff.length) return '';
+  return diff
+    .map(d => `${d.file}:${d.additions ?? 0}/${d.deletions ?? 0}:${(d.patch || '').length}`)
+    .sort()
+    .join('|');
+}
+
+export function autoverifyEnabled(env, store) {
+  if (env?.SPILLOVER_AUTOVERIFY === '0') return false;
+  return store.get() !== false;
+}
+
+export function createAutoverify(ctx, deps = {}) {
+  const {
+    verify = createVerify(ctx, deps),
+    derive = deriveCriteria,
+    requestOf = extractRequest,
+    generic = GENERIC_CRITERIA,
+    profile = id => profileFor(ctx, id),
+    env = process.env,
+    store = defaultStore(),
+  } = deps;
+
+  const state = new Map(); // sessionID -> { signature, rounds, running }
+
+  return async ({ sessionID, background }) => {
+    if (background && background.length) return; // hook re-fires when its own work finishes
+    if (!autoverifyEnabled(env, store)) return;
+
+    const slot = state.get(sessionID) ?? { signature: '', rounds: 0, running: false };
+    if (slot.running) return;
+    slot.running = true;
+    state.set(sessionID, slot);
+
+    try {
+      const session = await ctx.session.get({ sessionID });
+      if (session.parentID) return;                              // never grade a subagent
+      if ((session.agent ?? '').startsWith('plan')) return;      // planning is not the deliverable
+
+      const preset = await profile(sessionID);
+      const messages = await ctx.session.context({ sessionID });
+      const request = requestOf(messages);
+
+      let diff;
+      try { diff = await ctx.session.diff({ sessionID }); } catch { diff = undefined; }
+      const { userTurns, toolCalls } = sessionSignature(messages);
+      const sig = `${diffSignature(diff)}|${userTurns}|${toolCalls}`;
+
+      if (sig === slot.signature) return;                        // nothing changed
+      const requestChanged = userTurns !== (slot.userTurns ?? userTurns);
+      const rounds = requestChanged ? 0 : slot.rounds;           // a new prompt resets the cap
+      if (rounds >= 3) return;                                   // stop revising the same trail
+      if (!diff?.length && toolCalls === 0) return;              // no work done yet
+
+      const criteria = [...await derive({ request }), ...generic];
+      let result;
+      try {
+        result = await verify({ sessionID, criteria, resume: false, source: 'idle' });
+        slot.signature = sig;
+        slot.rounds = rounds + 1;
+        slot.userTurns = userTurns;
+      } catch (error) {
+        // A failed verify must never take the session down; leave the state
+        // unchanged so the next idle can try again.
+        if (error?.message?.includes('criteria')) { slot.signature = sig; slot.userTurns = userTurns; }
+        return;
+      }
+      return result;
+    } catch {
+      return; // the idle hook must never throw and crash the session
+    } finally {
+      slot.running = false;
+    }
+  };
+}
+
+function defaultStore() {
+  let value = true;
+  return {
+    get: () => value,
+    set: v => { value = v; },
+  };
+}
+
 export default Plugin.define({
   id: 'local.spillover',
   async setup(ctx) {
     const token = readFileSync(new URL('./token', import.meta.url), 'utf8').trim();
+    const autoverifyStore = defaultStore();
     await ctx.session.hook('http.request', async event => {
       const profile = await profileFor(ctx, event.sessionID);
       if (profile === 'local' && !['ollama', 'local-router'].includes(event.model.providerID)) {
@@ -210,7 +324,34 @@ export default Plugin.define({
     await ctx.command.transform(editor => editor.add({
       name: 'verify',
       description: 'Run a local typed-judge review of the current session, escalating to cloud when uncertain or failing',
-      execute: createVerify(ctx),
+      execute: async (input) => {
+        // Bare /verify derives acceptance criteria from the user's request;
+        // /verify <text> uses the explicit text. Empty text runs the derived path.
+        if (input.prompt?.text?.trim()) return createVerify(ctx)({ ...input });
+        const messages = await ctx.session.context({ sessionID: input.sessionID });
+        const request = extractRequest(messages);
+        if (!request) throw new Error('/verify needs a request to derive criteria from: ask for the work first, or pass explicit criteria.');
+        const criteria = [...await deriveCriteria({ request }), ...GENERIC_CRITERIA];
+        return createVerify(ctx)({ sessionID: input.sessionID, criteria, source: 'verify' });
+      },
     }));
+    await ctx.command.transform(editor => editor.add({
+      name: 'autoverify',
+      description: 'Toggle the automatic judge: /autoverify on|off|status',
+      execute: async ({ prompt, sessionID }) => {
+        const arg = (prompt.text || '').trim().toLowerCase();
+        const say = text => ctx.session.synthetic({ sessionID, text });
+        if (!arg || arg === 'status') return say(`Auto-verify is ${autoverifyStore.get() ? 'ON' : 'OFF'}.`);
+        if (arg === 'on') { autoverifyStore.set(true); return say('Auto-verify enabled: the judge will run when each task finishes.'); }
+        if (arg === 'off') { autoverifyStore.set(false); return say('Auto-verify disabled.'); }
+        throw new Error('Usage: /autoverify on|off|status');
+      },
+    }));
+    // ---------------------------------------------------------------------
+    // Auto-verify — the judge runs on its own when a session finishes work,
+    // with no hand-written criteria (derived from the user's request). /verify
+    // without an argument uses the same derivation.
+    // ---------------------------------------------------------------------
+    await ctx.session.hook('experimental.idle', createAutoverify(ctx, { store: autoverifyStore }));
   },
 });

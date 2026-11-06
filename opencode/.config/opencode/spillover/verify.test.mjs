@@ -115,16 +115,29 @@ test('judge uncertain in mixed preset escalates to cloud', async () => {
 test('empty criteria throws', async () => {
   const { ctx } = makeCtx('local');
   const verify = createVerify(ctx, { judge: async () => ({ answers: {} }), profile: async () => 'local' });
-  await assert.rejects(() => verify({ sessionID: 's', prompt: { text: '   ' } }), /requires acceptance criteria/);
+  await assert.rejects(() => verify({ sessionID: 's', prompt: { text: '   ' } }), /No acceptance criteria/);
 });
 
-test('placeholder criteria throws before the judge runs', async () => {
+test('placeholder-only criteria throw before the judge runs', async () => {
   const { ctx, calls } = makeCtx('local');
   let judged = false;
   const verify = createVerify(ctx, { judge: async () => { judged = true; return { answers: {} }; }, profile: async () => 'local' });
-  await assert.rejects(() => verify({ sessionID: 's', prompt: { text: '<criteria>' } }), /placeholder/);
+  await assert.rejects(() => verify({ sessionID: 's', prompt: { text: '<criteria>' } }), /No acceptance criteria/);
   assert.equal(judged, false, 'judge must not be called on placeholder criteria');
   assert.equal(calls.synthetic.length, 0, 'no reviewing message when criteria are invalid');
+});
+
+test('criteria array is accepted and placeholders are filtered out of user text', async () => {
+  const { ctx } = makeCtx('local');
+  const appended = [];
+  const verify = createVerify(ctx, {
+    judge: async () => ({ answers: { rule_1: passAnswer(), rule_2: passAnswer() } }),
+    profile: async () => 'local',
+    append: async r => appended.push(r),
+  });
+  await verify({ sessionID: 's', criteria: ['real criterion', 'another real criterion'] });
+  assert.equal(appended.length, 1);
+  assert.equal(appended[0].verdict, 'PASS');
 });
 
 test('surrounding quotes are stripped from criteria', async () => {

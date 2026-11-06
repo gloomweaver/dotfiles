@@ -100,12 +100,38 @@ criteria using a local typed decision model, not a free-text LLM.
   answer) to the OpenRouter build router; the local preset always stays local
   and reports **UNCERTAIN** as-is.
 - Criteria are passed one requirement per line (surrounding quotes are
-  stripped). Empty criteria and placeholder text like `<criteria>` are
-  rejected before the judge runs; a `[verify] Reviewing…` message is posted
-  first so the run never looks silent.
+  stripped). Empty criteria are rejected before the judge runs; a
+  `[verify] Reviewing…` message is posted first so the run never looks silent.
+- **`/verify` with no argument now derives its criteria automatically.** It
+  reads the user's request (first real request plus the latest follow-up),
+  sends it to a small local model (`llama3.2:3b` via Ollama's `/api/chat`,
+  bypassing the gateway so it runs in every preset) for up to 5 checkable
+  statements, then adds two generic checks (no failing command output left
+  unaddressed; final claims backed by tool output/diff). If derivation fails it
+  falls back to one criterion built from the request itself.
+
+### Automatic judge (`experimental.idle`)
+
+The judge also runs on its own, with no hand-written criteria.
+
+- It fires on the `experimental.idle` hook — when a session finishes model work
+  with no pending input. It skips when background work is still running (the
+  hook re-fires when that finishes), in child/subagent sessions, in plan agents,
+  when nothing changed (same diff + user-turn + tool-call signature), when there
+  is neither a diff nor any tool call, and after **3 rounds without a new
+  request**.
+- Criteria come from the same derivation above. A `PASS` or `UNCERTAIN` verdict
+  is posted but does **not** wake the agent; a `FAIL` (or a cloud FAIL) is posted
+  for the agent to fix, which starts a new round.
+- Preset behaviour is unchanged: local never calls cloud; cloud/mixed escalate
+  non-PASS verdicts to `router/build`.
+- Opt out with `/autoverify off` (or `status`, `on`), or set
+  `SPILLOVER_AUTOVERIFY=0`. `/autoverify` is in-memory and resets when the
+  plugin reloads.
 - Every run is appended to `verdict.log` (JSONL, gitignored) as
-  `{ts, task, preset, model, verdict, failures, uncertain, escalated, turns,
-  reason, probabilities}`. `reason` records judge transport/schema failures;
+  `{ts, task, preset, source, model, verdict, failures, uncertain, escalated,
+  turns, reason, probabilities}`. `source` is `verify` (manual/derived command)
+  or `idle` (automatic). `reason` records judge transport/schema failures;
   `probabilities` records per-check P(true) so a mid-range UNCERTAIN can be
   told apart from a judge outage. This is the evidence base for eventual model
   routing; it is not used to pick a model today.
