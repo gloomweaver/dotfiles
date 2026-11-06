@@ -13,17 +13,21 @@ export const DERIVE_TIMEOUT_MS = 30000;
 // Checks that apply to any piece of work. They are phrased so they can be
 // answered from the transcript and tool output alone.
 export const GENERIC_CRITERIA = [
-  'Every build, test or vet command that was run in the session finished without errors, and no failing output was left unaddressed.',
+  'The work is in a finished state: the latest run of each build, test and vet command relevant to the final result passed, and no failing output was left uncorrected. A command that failed earlier and then passed after a fix counts as passed.',
   "Each claim in the assistant's final message is supported by the tool output or file changes shown.",
 ];
 
 const isUser = m => m && (m.type === 'user' || m.role === 'user');
 
+// A one-word reply ("go", "yes", "continue") is an acknowledgement, not a task.
+const isTrivial = s => s.split(/\s+/).length <= 1;
+
 // The task as the user stated it: the first real request, plus the latest
-// follow-up when there is one. Slash commands are not requests.
+// substantive follow-up when there is one. Slash commands, acknowledgements and
+// single-word replies are not requests.
 export function extractRequest(messages) {
   const users = (messages || [])
-    .filter(m => isUser(m) && typeof m.text === 'string' && m.text.trim() && !/^\/\w/.test(m.text.trim()))
+    .filter(m => isUser(m) && typeof m.text === 'string' && m.text.trim() && !/^\/\w/.test(m.text.trim()) && !isTrivial(m.text.trim()))
     .map(m => m.text.trim());
   if (!users.length) return '';
   const first = users[0].slice(0, 3000);

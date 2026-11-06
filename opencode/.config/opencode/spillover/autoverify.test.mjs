@@ -151,6 +151,18 @@ test('extractRequest returns the first request and the latest follow-up, ignorin
   assert.doesNotMatch(request, /\/verify/);
 });
 
+test('extractRequest ignores acknowledgements and single-word replies', () => {
+  const request = extractRequest([
+    user('integrate the judge into the flow automatically'),
+    user('go'),
+  ]);
+  assert.equal(request, 'integrate the judge into the flow automatically');
+  assert.doesNotMatch(request, /Follow-up request/);
+
+  // With no substantive request at all, it returns empty.
+  assert.equal(extractRequest([user('go'), user('/verify'), user('okay')]), '');
+});
+
 test('qualifyCriteria rejects boilerplate and meta-noise, falls back to the request', () => {
   const request = 'integrate the judge into the flow automatically';
   // Generic stand-in subjects and echo-of-the-prompt noise are dropped.
