@@ -112,6 +112,27 @@ test('judge uncertain in mixed preset escalates to cloud', async () => {
   assert.equal(appended[0].escalated, true);
 });
 
+test('auto-run (source idle) never escalates to cloud, even on a FAIL in cloud preset', async () => {
+  const { ctx, calls } = makeCtx('cloud');
+  const judge = async () => ({ answers: { rule_1: failAnswer() } });
+  const appended = [];
+  const verify = createVerify(ctx, { judge, profile: async () => 'cloud', append: async r => appended.push(r) });
+  await verify({ sessionID: 's', criteria: ['criterion'], source: 'idle' });
+  assert.equal(calls.generate.length, 0, 'idle source must never call the cloud reviewer');
+  assert.equal(appended[0].verdict, 'FAIL');
+  assert.equal(appended[0].escalated, false);
+});
+
+test('explicit /verify still escalates to cloud in a cloud preset', async () => {
+  const { ctx, calls } = makeCtx('cloud');
+  const judge = async () => ({ answers: { rule_1: failAnswer() } });
+  const appended = [];
+  const verify = createVerify(ctx, { judge, profile: async () => 'cloud', append: async r => appended.push(r) });
+  await verify({ sessionID: 's', criteria: ['criterion'], source: 'verify' });
+  assert.equal(calls.generate.length, 1, 'manual verify keeps cloud escalation');
+  assert.equal(appended[0].escalated, true);
+});
+
 test('empty criteria throws', async () => {
   const { ctx } = makeCtx('local');
   const verify = createVerify(ctx, { judge: async () => ({ answers: {} }), profile: async () => 'local' });

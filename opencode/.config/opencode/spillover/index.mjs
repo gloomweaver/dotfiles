@@ -119,7 +119,11 @@ export function createVerify(ctx, deps = {}) {
       }
     }
 
-    const escalate = verdict.verdict !== 'PASS' && preset !== 'local';
+    // Auto-run (source === 'idle') never escalates to cloud: the trigger is the
+    // machine grading its own idle trail, and letting that spend OpenRouter
+    // credits turned every false-positive FAIL into a paid cloud call. Cloud
+    // escalation remains an explicit /verify (and manual) path only.
+    const escalate = verdict.verdict !== 'PASS' && preset !== 'local' && source !== 'idle';
     // The failed criteria use the human's own words (not rule_1), so the
     // assistant — and the cloud reviewer — see exactly what the work must fix.
     const failedText = verdict.failures.map(name => lines[Number(name.slice(5)) - 1] ?? `check ${name}`).join('\n- ');
@@ -234,7 +238,8 @@ export function createAutoverify(ctx, deps = {}) {
       const requestChanged = userTurns !== (slot.userTurns ?? userTurns);
       const rounds = requestChanged ? 0 : slot.rounds;           // a new prompt resets the cap
       if (rounds >= 3) return;                                   // stop revising the same trail
-      if (!diff?.length && toolCalls === 0) return;              // no work done yet
+      if (!diff?.length) return;                                 // no file changes: nothing deliverable to grade
+      if (toolCalls === 0) return;                               // no work done yet
 
       // Derive only when the request is substantial; a short/vague request
       // hands the small derivation model a blank it fills with hallucinations

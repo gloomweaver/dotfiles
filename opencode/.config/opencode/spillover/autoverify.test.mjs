@@ -93,12 +93,14 @@ test('skips a child session and a plan agent', async () => {
   assert.equal(verifyCalls.length, 0, 'child sessions and plan agents are not graded');
 });
 
-test('skips when there is neither a diff nor tool calls', async () => {
-  // A ctx whose transcript has no tool calls and whose diff is empty.
+test('skips a read-only session: tool calls but no file diff', async () => {
+  // A diagnostic/planning session makes tool calls (grep, read, shell) but
+  // produces no file changes. It must not be auto-graded, or the judge grades
+  // the conversation itself and escalates the false FAIL to cloud.
   const ctx = {
     session: {
       get: async () => ({ agent: 'build' }),
-      context: async () => [user('add a foo function')],
+      context: async () => [user('what mode is this?'), assistantTool('bash')],
       diff: async () => [],
     },
   };
@@ -107,11 +109,11 @@ test('skips when there is neither a diff nor tool calls', async () => {
     verify: async args => { verifyCalls.push(args); return { ok: true }; },
     derive: async () => ['criterion'],
     generic: [],
-    profile: async () => 'local',
+    profile: async () => 'cloud',
     store: { get: () => true, set: () => {} },
   });
   await autoverify({ sessionID: 's', background: [] });
-  assert.equal(verifyCalls.length, 0);
+  assert.equal(verifyCalls.length, 0, 'no file changes means nothing to grade');
 });
 
 test('stops after 3 rounds without a new user request', async () => {

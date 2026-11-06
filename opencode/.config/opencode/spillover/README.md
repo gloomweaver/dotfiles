@@ -120,15 +120,20 @@ The judge also runs on its own, with no hand-written criteria.
 - It fires on the `experimental.idle` hook — when a session finishes model work
   with no pending input. It skips when background work is still running (the
   hook re-fires when that finishes), in child/subagent sessions, in plan agents,
-  when nothing changed (same diff + user-turn + tool-call signature), when there
-  is neither a diff nor any tool call, and after **3 rounds without a new
-  request**. A **PASS settles the trail**: the hook does not re-grade it until
-  the user sends a new request, so the judge's own output can't re-trigger it.
+  when there are **no file changes** (a read-only or diagnostic session has
+  nothing deliverable to grade, regardless of how many tool calls it made),
+  when nothing changed (same diff + user-turn + tool-call signature), and after
+  **3 rounds without a new request**. A **PASS settles the trail**: the hook
+  does not re-grade it until the user sends a new request, so the judge's own
+  output can't re-trigger it.
 - Criteria come from the same derivation above. A `PASS` or `UNCERTAIN` verdict
-  is posted but does **not** wake the agent; a `FAIL` (or a cloud FAIL) is posted
-  for the agent to fix, which starts a new round.
-- Preset behaviour is unchanged: local never calls cloud; cloud/mixed escalate
-  non-PASS verdicts to `router/build`.
+  is posted but does **not** wake the agent; a `FAIL` is posted for the agent to
+  fix, which starts a new round.
+- **Auto-run never escalates to cloud.** The idle trigger grades locally and
+  reports its verdict; only an explicit `/verify` (or a manual non-idle call)
+  escalates a non-PASS to `router/build` in cloud/mixed presets. This stops an
+  automatic false-positive from spending OpenRouter credits. Local preset never
+  calls cloud regardless.
 - Opt out with `/autoverify off` (or `status`, `on`), or set
   `SPILLOVER_AUTOVERIFY=0`. `/autoverify` is in-memory and resets when the
   plugin reloads.
