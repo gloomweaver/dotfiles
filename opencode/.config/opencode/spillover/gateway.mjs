@@ -159,6 +159,7 @@ export function createGateway({ token, localURL = 'http://127.0.0.1:11434/v1/cha
           selected = 'cloud'; counts.cloud++;
         } catch (error) { release(); release = null; throw error; }
       }
+      const startedMs = Date.now();
       log(JSON.stringify({ time: new Date().toISOString(), mode, target: selected, model: body.model, reason, promptTokens }));
       // Once headers/body have been sent, NEVER retry on a different model.
       try {
@@ -168,6 +169,7 @@ export function createGateway({ token, localURL = 'http://127.0.0.1:11434/v1/cha
         const cancel = () => { void reader.cancel().catch(() => {}); };
         signal.addEventListener('abort', cancel, { once: true });
         if (signal.aborted) cancel();
+        let bodyBytes = [];
         try {
           while (true) {
             let timer;
@@ -175,10 +177,33 @@ export function createGateway({ token, localURL = 'http://127.0.0.1:11434/v1/cha
               timer = setTimeout(() => reject(new Error('Upstream stream idle timeout')), idleMs);
             })]).finally(() => clearTimeout(timer));
             if (result.done) break;
-            if (!res.write(Buffer.from(result.value))) await once(res, 'drain', { signal });
+            const chunk = Buffer.from(result.value);
+            bodyBytes.push(chunk);
+            if (!res.write(chunk)) await once(res, 'drain', { signal });
           }
           res.end();
         } finally { signal.removeEventListener('abort', cancel); await reader.cancel().catch(() => {}); }
+
+        // Parse the upstream body once the stream is done, to record completion
+        // usage (tokens) and OpenRouter's reported cost, if present. OpenAI-
+        // compatible software sends usage on the final chunk (or one shot).
+        try {
+          const text = Buffer.concat(bodyBytes).toString('utf8').trim();
+          if (!text) throw new Error('empty body');
+          // Streamed SSE has "data: " lines; one-shot is a plain JSON object.
+          let payload = text;
+          const dataLines = text.split('\n').filter(l => l.startsWith('data:'));
+          if (dataLines.length) payload = dataLines.map(l => l.slice(5).trim()).filter(l => l !== '[DONE]').join('');
+          const usage = JSON.parse(payload)?.usage;
+          log(JSON.stringify({
+            time: new Date().toISOString(), mode, target: selected, model: body.model,
+            wallMs: Date.now() - startedMs,
+            completionTokens: usage?.completion_tokens ?? usage?.output_tokens,
+            cost: usage?.cost,
+          }));
+        } catch (error) {
+          log(JSON.stringify({ time: new Date().toISOString(), mode, target: selected, model: body.model, wallMs: Date.now() - startedMs, usageError: error.message }));
+        }
       } finally { release?.(); }
     } catch (error) {
       if (!res.headersSent && !res.destroyed) json(error.status || 502, { error: { message: error.status ? error.message : 'Gateway upstream failure', type: 'routing_error' } });

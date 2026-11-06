@@ -135,6 +135,30 @@ test('cloud errors release reservations', async t => {
   assert.equal(result.status, 429); await result.text(); assert.equal((await f.health()).cloudActive, 0);
 });
 
+test('logs completion tokens, cost and wall time from the upstream usage', async () => {
+  const lines = [];
+  const local = http.createServer(async (req, res) => {
+    for await (const c of req) {}
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ choices: [{ message: { content: 'hi' } }], usage: { prompt_tokens: 7, completion_tokens: 42, cost: 0.00012 } }));
+  });
+  const localURL = await listen(local);
+  const gateway = createGateway({ token: 'test', localURL, cloudURL: 'http://127.0.0.1:1', log: l => lines.push(JSON.parse(l)), countPrompt: async () => 7 });
+  const url = await listen(gateway);
+  const result = await fetch(`${url}/v1/chat/completions`, {
+    method: 'POST', headers: { authorization: 'Bearer test', 'content-type': 'application/json', 'x-spillover-mode': 'local' },
+    body: JSON.stringify({ model: 'llama3.2:3b', messages: [{ role: 'user', content: 'hi' }] }),
+  });
+  await result.text();
+  await Promise.all([gateway, local].map(s => new Promise(r => { s.close(r); s.closeAllConnections(); })));
+  const usageLine = lines.find(l => 'completionTokens' in l);
+  assert.ok(usageLine, 'a usage log line must be emitted');
+  assert.equal(usageLine.completionTokens, 42);
+  assert.equal(usageLine.cost, 0.00012);
+  assert.equal(usageLine.target, 'local');
+  assert.ok(Number.isFinite(usageLine.wallMs), 'wallMs must be recorded');
+});
+
 test('FIFO slots are bounded, cancellation-safe and release is idempotent', async () => {
   const slots = new Slots(1, 1), release = slots.take(); const controller = new AbortController();
   const waiting = slots.wait(controller.signal);
