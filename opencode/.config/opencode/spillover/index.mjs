@@ -1,5 +1,8 @@
 import { Plugin } from '@opencode/plugin';
 import { readFileSync } from 'node:fs';
+import { judgeLocal, noul, renderVerdictForCloud } from './judge.mjs';
+import { composeVerdict, formatVerdict } from './verdict.mjs';
+import { appendRun } from './runlog.mjs';
 
 export async function profileFor(ctx, sessionID) {
   const seen = new Set();
@@ -16,6 +19,77 @@ export async function profileFor(ctx, sessionID) {
     return 'local'; // Fail closed for defaults and unknown profiles.
   }
   return 'local';
+}
+
+// /verify is a factory (not a closure over module singletons) so tests can inject
+// a stubbed judge, run log and profile, and so the plugin registration stays a
+// one-liner. Local preset never escalates; cloud/mixed escalate on non-PASS or
+// judge uncertainty.
+export function createVerify(ctx, deps = {}) {
+  const { judge = judgeLocal, append = appendRun, profile = id => profileFor(ctx, id) } = deps;
+  return async ({ sessionID, prompt }) => {
+    const messages = await ctx.session.context({ sessionID });
+    const criteria = (prompt?.text || '').trim();
+    if (!criteria) throw new Error('/verify requires acceptance criteria: pass them as the command argument, e.g. /verify "the tests must not ignore --verbose".');
+    const recent = messages.slice(-8).map(m => {
+      const text = (m.content || []).map(p => (p.text || '')).filter(Boolean).join('\n');
+      return text ? text.slice(0, 4000) : '';
+    }).filter(Boolean).join('\n\n---\n\n');
+    if (!recent) throw new Error('No recent session text to verify.');
+
+    const acceptLines = criteria.split('\n').map(s => s.trim()).filter(Boolean);
+    const questions = {};
+    acceptLines.forEach((line, i) => {
+      questions[`rule_${i + 1}`] = {
+        ...noul(
+          `Does the work satisfy this acceptance criterion? "${line}"`,
+          { true: 'the criterion is met', false: 'the criterion is unmet or violated' },
+        ),
+        intent: 'satisfied',
+      };
+    });
+
+    const preset = await profile(sessionID);
+    const local = await judge({ state: `Acceptance criteria:\n${criteria}\n\nRecent session transcript:\n${recent}`, questions });
+
+    // The local judge returns { uncertain } on transport/schema failure or
+    // { answers } on success. Compose a verdict from probabilities only when
+    // it actually answered.
+    let verdict;
+    if (local.uncertain) {
+      verdict = { verdict: 'UNCERTAIN', failures: [], uncertain: Object.keys(questions) };
+    } else {
+      verdict = composeVerdict(questions, local.answers);
+    }
+
+    const escalate = verdict.verdict !== 'PASS' && preset !== 'local';
+    if (escalate) {
+      const cloudPrompt = local.uncertain
+        ? `You are the fallback reviewer. The local typed judge could not answer. Acceptance criteria:\n${criteria}\n\nRecent session transcript:\n${recent}\n\nAnswer compactly: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix to make first. Do not write code.`
+        : `You are the fallback reviewer. The local typed judge returned ${verdict.verdict}. Local probabilities:\n${renderVerdictForCloud({ questions, answers: local.answers, state: `Acceptance criteria:\n${criteria}\n\nRecent session transcript:\n${recent}` })}\n\nRe-evaluate: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix. Do not write code.`;
+      const review = await ctx.experimental.generate.text({
+        model: { providerID: 'openrouter', id: 'router/build' },
+        prompt: cloudPrompt,
+      });
+      await ctx.session.synthetic({ sessionID, text: `[verify] Cloud review of "${criteria}":\n${review.text}` });
+    } else if (local.uncertain) {
+      await ctx.session.synthetic({ sessionID, text: formatVerdict({ ...verdict, backend: 'local', escalated: false, reason: local.reason }) });
+    } else {
+      await ctx.session.synthetic({ sessionID, text: formatVerdict({ ...verdict, backend: 'local', escalated: false }) });
+    }
+
+    // Record the run for later (not yet) routing decisions.
+    await append({
+      task: criteria.split('\n')[0] || 'verify',
+      preset,
+      model: preset === 'local' ? 'ollama/flint:40b' : 'local-router/build',
+      verdict: verdict.verdict,
+      failures: verdict.failures,
+      uncertain: verdict.uncertain,
+      escalated: escalate,
+      turns: messages.length,
+    });
+  };
 }
 
 export default Plugin.define({
@@ -72,30 +146,18 @@ export default Plugin.define({
       },
     }));
     // ---------------------------------------------------------------------
-    // /verify — cloud-backed correctness check of the current session's work.
+    // /verify — typed-judge correctness check of the current session's work.
     // Addresses the silent-failure gap: local models often pass their own weak
     // tests while still violating the spec (e.g. sorting map keys, ignoring a
-    // flag). This sends a cheap one-shot review to the cloud build router and
-    // replays its verdict into the session, so the local model can fix issues
-    // without a full cloud rebuild.
+    // flag). A local typed decision model (autotrust-jev) grades the work first;
+    // in cloud/mixed presets a non-PASS or malformed local verdict escalates to
+    // the OpenRouter build router. Local preset stays local and reports
+    // UNCERTAIN rather than guessing. Each run is logged to verdict.log.
     // ---------------------------------------------------------------------
     await ctx.command.transform(editor => editor.add({
       name: 'verify',
-      description: 'Run a cloud correctness review of the current session against its acceptance criteria',
-      execute: async ({ sessionID, prompt }) => {
-        const messages = await ctx.session.context({ sessionID });
-        const criteria = prompt.text.trim() || 'the task specified at the start of this session';
-        const recent = messages.slice(-8).map(m => {
-          const text = (m.content || []).map(p => (p.text || '')).filter(Boolean).join('\n');
-          return text ? text.slice(0, 4000) : '';
-        }).filter(Boolean).join('\n\n---\n\n');
-        if (!recent) throw new Error('No recent session text to verify.');
-        const review = await ctx.experimental.generate.text({
-          model: { providerID: 'openrouter', id: 'router/build' },
-          prompt: `You are reviewing the recent work of a local coding agent. Acceptance criteria: ${criteria}\n\nRecent session transcript:\n${recent}\n\nAnswer compactly: (1) VERDICT: PASS or FAIL. (2) If FAIL, list each unmet acceptance criterion with a one-line reason and the file/line if visible. (3) The single most important fix to make first. Do not write code, just the verdict and specific issues.`,
-        });
-        await ctx.session.synthetic({ sessionID, text: `[verify] Cloud review of "${criteria}":\n${review.text}` });
-      },
+      description: 'Run a local typed-judge review of the current session, escalating to cloud when uncertain or failing',
+      execute: createVerify(ctx),
     }));
   },
 });

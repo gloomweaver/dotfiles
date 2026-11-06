@@ -74,6 +74,39 @@ OpenRouter supplies cloud-to-cloud model failover. The plugin resolves the activ
 OpenRouter API-key connection for each cloud/mixed request; no cloud key is copied
 to disk by this setup. A missing connection fails overflow explicitly.
 
+## Typed judge (`/verify`)
+
+`/verify` grades the current session's finished work against its acceptance
+criteria using a local typed decision model, not a free-text LLM.
+
+- The local judge is AutoTrust's `autotrust-jev:9b-nvfp4`, served by Ollama's
+  `/v1/systemone` endpoint (requires Ollama v0.35.0+). It answers **noul**
+  (yes/no with a probability) questions and returns probabilities the plugin
+  turns into a verdict. It calls Ollama directly on 11434, bypassing the chat
+  gateway.
+- Each line of the acceptance criteria becomes one atomic yes/no check. Checks
+  are asked with an explicit polarity (`intent: satisfied`), so a low
+  P(satisfied) means the check failed. In code, a violation probability of
+  **0.7 or above** fails, below **0.3** passes, and anything in between is
+  reported as **UNCERTAIN**.
+- The local judge never calls the cloud by itself. In cloud/mixed presets,
+  `/verify` escalates a non-PASS local verdict (or a malformed/unknown local
+  answer) to the OpenRouter build router; the local preset always stays local
+  and reports **UNCERTAIN** as-is.
+- Every run is appended to `verdict.log` (JSONL, gitignored) as
+  `{ts, task, preset, model, verdict, failures, uncertain, escalated, turns}`.
+  This is the evidence base for eventual model routing; it is not used to pick
+  a model today.
+
+Validation against the `~/repos/build-compare` corpus (a Go `jsonfmt` with a
+known-good and a known-bad implementation) confirms the local judge flags the
+bad build's spec violations and passes the good ones.
+
+```sh
+SKIP_JUDGE_LIVE=1 node --test judge.test.mjs   # unit tests only
+node --test judge.test.mjs                     # includes a live /v1/systemone call
+```
+
 ## Cost, privacy and scope
 
 **Overflow is billed by OpenRouter.** OpenCode sees the local model identity and

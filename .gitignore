@@ -33,6 +33,7 @@ pi/.pi/agent/extensions/*/node_modules/
 opencode/.config/opencode/spillover/token
 opencode/.config/opencode/spillover/gateway.log
 opencode/.config/opencode/spillover/gateway.error.log
+opencode/.config/opencode/spillover/verdict.log
 opencode/.config/opencode/spillover/package-lock.json
 opencode/.config/opencode/spillover/node_modules/
 opencode/.config/opencode/opencode.jsonc.before-spillover-*

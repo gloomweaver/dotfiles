@@ -71,7 +71,7 @@ test('local-only queues even when a cloud key is supplied', async t => {
 
 test('large requests spill in mixed but fail closed in local', async t => {
   const f = await fixture(t);
-  const body = { messages: [{ role: 'user', content: 'x'.repeat(160000) }] };
+  const body = { model: 'flint:40b', messages: [{ role: 'user', content: 'x'.repeat(700000) }] };
   const mixed = await f.request('mixed', body); assert.equal(mixed.status, 200); await mixed.text();
   const local = await f.request('local', body); assert.equal(local.status, 400);
   assert.match(await local.text(), /input tokens.*output allowance.*template reserve/);
