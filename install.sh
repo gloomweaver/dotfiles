@@ -147,6 +147,7 @@ backup_if_needed "$HOME/.config/fish"
 backup_if_needed "$HOME/.config/ghostty"
 backup_if_needed "$HOME/.config/starship.toml"
 backup_if_needed "$HOME/.tmux.conf"
+backup_if_needed "$HOME/.config/opencode"
 
 stow_package "fish"
 stow_package "ghostty"
@@ -155,6 +156,7 @@ stow_package "nvim"
 stow_package "aerospace"
 stow_package "starship"
 stow_package_no_folding "pi"
+stow_package_no_folding "opencode"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"

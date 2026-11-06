@@ -36,6 +36,7 @@ The installer is **idempotent** — safe to re-run at any time.
 ├── nvim/           # Neovim — LSP, completion, telescope, treesitter
 ├── aerospace/      # AeroSpace — tiling window manager
 ├── pi/             # Pi coding agent — agents, extensions, prompts, theme
+├── opencode/       # OpenCode — config, models, local-first routing plugin
 ├── Brewfile.mac    # Homebrew packages (brew bundle dump to update)
 ├── install.sh      # Idempotent installer
 └── .gitignore
@@ -51,6 +52,7 @@ The installer is **idempotent** — safe to re-run at any time.
 | `nvim` | `~/.config/nvim/` | normal |
 | `aerospace` | `~/.aerospace.toml` | normal |
 | `pi` | `~/.pi/agent/` | `--no-folding` (preserves sessions/auth) |
+| `opencode` | `~/.config/opencode/` | `--no-folding` (preserves token/logs) |
 
 ---
 
@@ -290,6 +292,42 @@ If a VitePlus update breaks pi extension loading, run:
 ### Skills
 
 - **find-skills** — discover community skills via `npx skills find`
+
+---
+
+## OpenCode
+
+Local-first coding agent config with automatic cloud overflow. Config:
+`opencode/.config/opencode/opencode.jsonc`; routing plugin lives in
+`opencode/.config/opencode/spillover/`.
+
+### Models
+
+| Model | Role |
+|---|---|
+| **Flint 40B (MoE)** | Primary build/plan workhorse (reasoning) |
+| **Qwen3 Coder 30B (MoE)** | `explore` (fast, non-reasoning) |
+| **Llama 3.2 3B** | Background utilities (`summary`, `title`) |
+
+### Routing presets (`/preset`)
+
+| Preset | Primary inference | Overflow |
+|---|---|---|
+| `cloud-build` / `cloud-plan` | OpenRouter fallback routers | n/a |
+| `mixed-build` / `mixed-plan` | Local-first (Flint) + cloud plan | Cloud when busy/large |
+| `local-build` / `local-plan` | Flint 40B | None (queue/fail) |
+
+Local inference is serialized through a gateway on `127.0.0.1:11435`. See
+`spillover/README.md` for capacity/failure policy, inspection (`status.mjs`),
+and the `/verify` cloud-review command.
+
+### Secrets and machine-local files (not tracked)
+
+The gateway auth `token`, `service.json` (route password), runtime logs
+(`gateway.log`, `gateway.error.log`), config backups
+(`*.before-spillover-*`), `package-lock.json`, and `node_modules/` are
+gitignored. On first install you must create `~/.config/opencode/spillover/token`
+(a random 64-byte secret, mode 0600) before the gateway can start.
 
 ---
 
