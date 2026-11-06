@@ -1,190 +1,77 @@
-# Local-first routing
+# Local-first routing gateway
 
-Installed for OpenCode 2.2.1. The plugin intercepts Ollama/local-router inference
-requests and sends them through an authenticated gateway on `127.0.0.1:11435`.
-The gateway runs at login via `~/Library/LaunchAgents/ai.opencode.spillover.plist`.
+Installed for OpenCode 2.2.1. A small plugin (`index.mjs`) sends `ollama/*` and
+`local-router/*` inference requests through an authenticated gateway on
+`127.0.0.1:11435`. The gateway runs at login via
+`~/Library/LaunchAgents/ai.opencode.spillover.plist`.
 
-## Select a preset
+There are two agents, `build` and `plan`. Routing is decided by the model you pick:
 
-There are only two top-level agents — `build` and `plan` — and three routing
-profiles: `cloud`, `mixed`, `local`. The profile is **derived from the root
-session's model provider**, not from an agent-name suffix:
-
-| Root session `model.providerID` | Profile |
-| --- | --- |
-| `openrouter` | `cloud` |
-| `local-router` | `mixed` |
-| `ollama` (or missing/unknown) | `local` (fail closed) |
-
-Use the model picker to switch the stored model, or the `/preset` command as a
-shortcut:
-
-```text
-/preset cloud
-/preset mixed
-/preset local
-```
-
-`/preset` switches only the current session's model for its agent:
-
-| Profile | `build` model | `plan` model |
+| Model provider | Gateway mode | Behavior |
 | --- | --- | --- |
-| `cloud` | `openrouter/router/build` | `openrouter/router/plan` |
-| `mixed` | `local-router/build` | `openrouter/router/plan` |
-| `local` | `ollama/flint:40b` | `ollama/flint:40b` |
+| `ollama/*` | `local` | Queued on the single local slot. Never goes to cloud. Too-large prompts fail with an explicit error. |
+| `local-router/build` | `mixed` | Flint first. Spills to cloud when local is busy, the prompt is too large, or local fails. |
+| `openrouter/*` | (bypasses gateway) | Straight to OpenRouter. |
 
-Switching plan → build in one session does not necessarily change the stored
-model, so `/preset` (or the model picker) keeps the profile in sync; a stale or
-missing model fails closed to `local`, and cloud requests are never silently
-leaked.
-
-`build` and `general` use `local-router/build` (Local-first + cloud overflow);
-`explore` uses Qwen3 Coder 30B; maintenance agents (`summary`, `title`) use
-Llama 3.2 3B. Their actual requests inherit the **root session's** privacy
-policy. Subagent model overrides cannot opt an explicit local-only root into
-cloud inference.
+`build` and `general` default to `local-router/build`, `plan` to
+`openrouter/router/plan`, `explore` to Qwen3 Coder 30B, `summary` and `title` to
+Llama 3.2 3B. Change the model with the model picker.
 
 ## Capacity and failure policy
 
 - One shared local inference slot across gateway clients, projects and models.
-- Cloud/mixed: a new request spills immediately when local is busy, the
-  conservative context check fails, or the local backend is unavailable.
+- Mixed: a new request spills immediately when local is busy, the conservative
+  context check fails, or the local backend is unavailable.
 - Up to **three concurrent overflow requests** (not a cap on primary cloud calls).
 - Local-only: FIFO queue, maximum 16 queued requests, 120-second queue timeout.
   Requests too large for the local budget fail with a useful error; they are not
   silently truncated or sent to cloud. Compact context or split the task.
 - Overflow queue: maximum 16 queued, 30-second timeout.
 - Local response-header timeout: 45 seconds; cloud: 60 seconds. Local failures
-  open a 30-second circuit breaker for cloud/mixed requests.
+  open a 30-second circuit breaker for mixed requests.
 - No retry/failover after response output begins. Automatic OpenCode retries
-  are disabled for these gateway-backed requests to avoid replaying partial work.
+  are disabled for gateway-backed requests to avoid replaying partial work.
 - A stalled stream is terminated after 120 seconds without a chunk.
-- Requests are limited to 4 MiB; only the three configured local model IDs work.
+- Requests are limited to 4 MiB; only the configured local model IDs work.
 - Local eligibility counts serialized messages and tool schemas with the installed
   model's byte-level BPE vocabulary, fetched from local Ollama's verbose `/api/show`.
-  Tokenizers are cached in memory; no prompts go to a cloud tokenizer and no model
-  files are downloaded. A separate 4k reserve covers chat-template overhead, in
-  addition to the requested output allowance. This does not render the exact Go
-  chat template, so the final assembled prompt size remains an estimate.
-- Context errors report input tokens, output allowance, template reserve and the
-  context limit separately. Capability errors (e.g. media on a text-only local
-  route) are distinct. If a long existing session really exceeds the local window,
-  start a fresh session or compact locally. A shorter latest message alone does
-  not remove old history.
-- If local tokenizer metadata cannot be loaded, local mode fails explicitly;
-  cloud/mixed may overflow. Unknown tokenizer formats are never silently guessed.
-- Limits in OpenCode describe budgets; they do not change Ollama's actual
-  context allocation or guarantee that a task/model is suitable for local AI.
+  A separate 4k reserve covers chat-template overhead, in addition to the
+  requested output allowance. The final assembled prompt size remains an estimate.
+- If local tokenizer metadata cannot be loaded, `local` mode fails explicitly;
+  `mixed` may overflow.
 
 Overflow chains are in `gateway.mjs`:
 
 - Flint 40B requests: DeepSeek V4 Pro → Kimi K2.7 Code → Claude Sonnet 5.5.
 - Other workers: Gemini 3.8 Flash → Kimi K2.7 Code.
 
-OpenRouter supplies cloud-to-cloud model failover. The plugin resolves the active
-OpenRouter API-key connection for each cloud/mixed request; no cloud key is copied
-to disk by this setup. A missing connection fails overflow explicitly.
+The plugin resolves the active OpenRouter API-key connection for each `mixed`
+request; no cloud key is copied to disk. A missing connection fails overflow
+explicitly.
 
-## Typed judge (`/verify`)
+## Usage log
 
-`/verify` grades the current session's finished work against its acceptance
-criteria using a local typed decision model, not a free-text LLM.
+`gateway.log` gets two JSON lines per request:
 
-- The local judge is AutoTrust's `autotrust-jev:9b-nvfp4`, served by Ollama's
-  `/v1/systemone` endpoint (requires Ollama v0.35.0+). It answers **noul**
-  (yes/no with a probability) questions and returns probabilities the plugin
-  turns into a verdict. It calls Ollama directly on 11434, bypassing the chat
-  gateway.
-- Each line of the acceptance criteria becomes one atomic yes/no check. Checks
-  are asked with an explicit polarity (`intent: satisfied`), so a low
-  P(satisfied) means the check failed. In code, a violation probability of
-  **0.7 or above** fails, below **0.3** passes, and anything in between is
-  reported as **UNCERTAIN**.
-- The judge's evidence is the stored transcript **plus** the session's file
-  diff (`ctx.session.diff`). The transcript is assembled from every message
-  shape — user `text`, assistant `content`, and tool results under
-  `state.content` — because reading only `content[].text` silently drops user
-  turns and tool output. The diff answers the "no file/line visible" gap a
-  prose-only feed causes.
-- The local judge never calls the cloud by itself. In cloud/mixed presets,
-  `/verify` escalates a non-PASS local verdict (or a malformed/unknown local
-  answer) to the OpenRouter build router; the local preset always stays local
-  and reports **UNCERTAIN** as-is.
-- Criteria are passed one requirement per line (surrounding quotes are
-  stripped). Empty criteria are rejected before the judge runs; a
-  `[verify] Reviewing…` message is posted first so the run never looks silent.
-- **`/verify` with no argument now derives its criteria automatically.** It
-  reads the user's request (first real request plus the latest follow-up),
-  sends it to a small local model (`llama3.2:3b` via Ollama's `/api/chat`,
-  bypassing the gateway so it runs in every preset) for up to 5 checkable
-  statements, then adds two generic checks (the finished state; final claims
-  backed by tool output/diff). If derivation fails it falls back to one
-  criterion built from the request itself. If the request is too short or vague
-  to derive from (an acknowledgement like "go" or "do it"), derivation is
-  skipped and the two generic checks grade the work alone — the small model is
-  never handed a blank it would fill with hallucinations.
+- On routing: `{time, mode, target, model, reason, promptTokens}`.
+- On completion: `{time, mode, target, model, wallMs, completionTokens, cost}`.
+  `cost` is OpenRouter's reported cost and only appears for cloud requests.
+  `usageError` is logged instead if the usage block could not be parsed.
 
-### Automatic judge (`experimental.idle`)
-
-The judge also runs on its own, with no hand-written criteria.
-
-- It fires on the `experimental.idle` hook — when a session finishes model work
-  with no pending input. It skips when background work is still running (the
-  hook re-fires when that finishes), in child/subagent sessions, in plan agents,
-  when there are **no file changes** (a read-only or diagnostic session has
-  nothing deliverable to grade, regardless of how many tool calls it made),
-  when nothing changed (same diff + user-turn + tool-call signature), and after
-  **3 rounds without a new request**. A **PASS settles the trail**: the hook
-  does not re-grade it until the user sends a new request, so the judge's own
-  output can't re-trigger it.
-- Criteria come from the same derivation above. A `PASS` or `UNCERTAIN` verdict
-  is posted but does **not** wake the agent; a `FAIL` is posted for the agent to
-  fix, which starts a new round.
-- **Auto-run never escalates to cloud.** The idle trigger grades locally and
-  reports its verdict; only an explicit `/verify` (or a manual non-idle call)
-  escalates a non-PASS to `router/build` in cloud/mixed presets. This stops an
-  automatic false-positive from spending OpenRouter credits. Local preset never
-  calls cloud regardless.
-- Opt out with `/autoverify off` (or `status`, `on`), or set
-  `SPILLOVER_AUTOVERIFY=0`. `/autoverify` is in-memory and resets when the
-  plugin reloads.
-- Every run is appended to `verdict.log` (JSONL, gitignored) as
-  `{ts, task, preset, source, model, verdict, failures, uncertain, escalated,
-  turns, reason, probabilities}`. `source` is `verify` (manual/derived command)
-  or `idle` (automatic). `reason` records judge transport/schema failures;
-  `probabilities` records per-check P(true) so a mid-range UNCERTAIN can be
-  told apart from a judge outage. This is the evidence base for eventual model
-  routing; it is not used to pick a model today.
-
-Validation against the `~/repos/build-compare` corpus (a Go `jsonfmt` with a
-known-good and a known-bad implementation) confirms the local judge flags the
-bad build's spec violations and passes the good ones.
-
-```sh
-SKIP_JUDGE_LIVE=1 node --test judge.test.mjs   # unit tests only
-node --test judge.test.mjs                     # includes a live /v1/systemone call
-```
+Logs are not automatically rotated. Prompts and keys are never logged.
 
 ## Cost, privacy and scope
 
-**Overflow is billed by OpenRouter.** OpenCode sees the local model identity and
-may not attribute the overflow cost correctly; use OpenRouter's usage dashboard
-for authoritative billing. Three-way concurrency limits bursts, not total spend.
+Overflow is billed by OpenRouter. Use the `cost` field above or OpenRouter's
+usage dashboard.
 
-Cloud/mixed grants permission to send the full outgoing request context to cloud.
-Explicit local presets block nonlocal **session inference** requests in the
-plugin. This is not a network sandbox: web tools, shell commands, MCPs, other
-plugins, and external applications can still use the network independently.
-
-Only requests passing through this gateway share its capacity reservation.
-Direct Ollama use from other apps is not measured. The gateway does not configure
-Ollama's memory residency, parallelism or context length. It does not assess the
-quality of model answers or automatically break a feature into coding tasks.
-The agent receives bounded-delegation guidance; the three-child limit is guidance,
-not an enforced scheduler quota.
+Choosing an `ollama/*` model keeps inference local, but this is not a network
+sandbox: web tools, shell commands, MCPs and other plugins can still use the
+network independently. Only requests through this gateway share its capacity
+reservation; direct Ollama use from other apps is not measured.
 
 The gateway requires its own random `token` (mode 0600), binds only to loopback,
-and logs routing metadata, not prompts or keys. The token is not an OpenRouter key.
+and is not an OpenRouter key.
 
 ## Inspect and test
 
@@ -194,10 +81,6 @@ cd ~/.config/opencode/spillover
 npm test
 ```
 
-Logs: `gateway.log` and `gateway.error.log` in this directory. Logs are not
-automatically rotated. The launch agent uses a versioned Node executable; update
-its `ProgramArguments` if that Node version is removed.
-
 Restart **only the gateway** after changing its code or chains:
 
 ```sh
@@ -205,13 +88,12 @@ launchctl kickstart -k gui/$(id -u)/ai.opencode.spillover
 ```
 
 OpenCode watches its config and reloads plugins; `/reload` can force a reload.
-No OpenCode service restart is necessary.
 
 ## Disable / rollback
 
 Remove the spillover entry from `plugins`, change `build` and `general` back to
-`ollama/flint:40b`, and optionally remove the `local-router` provider.
-Without the plugin, direct Ollama models bypass gateway scheduling.
+`ollama/flint:40b`, and optionally remove the `local-router` provider. Without the
+plugin, direct Ollama models bypass gateway scheduling.
 
 Stop the gateway and disable it for the current login:
 
@@ -220,6 +102,3 @@ launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/ai.opencode.spillover.plis
 ```
 
 Move the plist out of `~/Library/LaunchAgents` to prevent it starting next login.
-The pre-install configuration backup is
-`~/.config/opencode/opencode.jsonc.before-spillover-2026-11-06T18-56-32.082Z`.
-Do not restore it wholesale if you have made newer configuration changes.

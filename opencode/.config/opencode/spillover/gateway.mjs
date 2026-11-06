@@ -105,7 +105,7 @@ export function createGateway({ token, localURL = 'http://127.0.0.1:11434/v1/cha
       }
       const eligible = textOnly && Number.isSafeInteger(promptTokens) && promptTokens + output + 4096 <= budget[0];
       if (!eligible && !canCloud) throw Object.assign(new Error(
-        `Local context budget exceeded for ${body.model}: ${promptTokens} input tokens + ${output} output allowance + 4096 template reserve > ${budget[0]}. Start a fresh session or compact history locally, then retry /preset local-plan. No cloud fallback in local mode.`), { status: 400 });
+        `Local context budget exceeded for ${body.model}: ${promptTokens} input tokens + ${output} output allowance + 4096 template reserve > ${budget[0]}. Start a fresh session or compact history, or switch to local-router/build (spills to cloud). No cloud fallback in ollama/* mode.`), { status: 400 });
       const key = req.headers['x-spillover-cloud-key'];
       let reason = !eligible ? 'capacity-or-capabilities' : Date.now() < circuitUntil ? 'local-circuit-open' : 'local-busy';
       let release = null;

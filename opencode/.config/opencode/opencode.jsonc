@@ -175,7 +175,8 @@
   // -----------------------------------------------------------------------
   "agents": {
     "build": {
-      "model": "local-router/build"
+      "model": "local-router/build",
+      "system": "Before saying a task is done, run the real acceptance commands (build, tests, and the program on example inputs) and paste their unedited output. Do not write tests that encode your own program's output as the expected value; derive expected values from the spec. Check ordering requirements (for example hash key order) explicitly."
     },
     "plan": {
       "model": "openrouter/router/plan",

@@ -1,41 +1,70 @@
-import { test } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import plugin, { profileFor } from './index.mjs';
+import plugin, { modeFor } from './index.mjs';
 
-test('children inherit root privacy policy, never their own profile name', async () => {
-  const sessions = { child: { parentID: 'root', model: { providerID: 'ollama' } }, root: { model: { providerID: 'openrouter' } } };
-  const ctx = { session: { get: async ({ sessionID }) => sessions[sessionID] } };
-  assert.equal(await profileFor(ctx, 'child'), 'cloud'); // root openrouter -> cloud; child defers to root
-  sessions.root.model = { providerID: 'local-router' }; assert.equal(await profileFor(ctx, 'child'), 'mixed');
-  sessions.root.model = { providerID: 'ollama' }; assert.equal(await profileFor(ctx, 'child'), 'local');
-  sessions.root.model = undefined; assert.equal(await profileFor(ctx, 'child'), 'local'); // missing model: fail closed
+test('mode follows the model provider', () => {
+  assert.equal(modeFor('local-router'), 'mixed');
+  assert.equal(modeFor('ollama'), 'local');
+  assert.equal(modeFor('openrouter'), undefined);
+  assert.equal(modeFor(undefined), undefined);
 });
 
-test('plugin gates cloud requests, rewrites local requests, and disables unsafe retries', async () => {
-  const hooks = {}, commands = {}, switches = [];
-  const session = { agent: 'build', model: { providerID: 'ollama' } };
+async function setup({ connection = { id: 'c1' }, credential = { type: 'key', key: 'sk-or-test' } } = {}) {
+  const hooks = {};
   const ctx = {
-    session: {
-      get: async () => session,
-      hook: async (name, handler) => { hooks[name] = handler; },
-      switchAgent: async x => { switches.push(x); }, switchModel: async x => { switches.push(x); },
-    },
-    command: { transform: async fn => fn({ add: c => { commands[c.name] = c; } }) },
-    integration: { connection: { active: async () => ({}), resolve: async () => ({ type: 'key', key: 'mock-key' }) } },
+    session: { hook: async (name, fn) => { hooks[name] = fn; } },
+    integration: { connection: {
+      active: async () => connection,
+      resolve: async () => credential,
+    } },
   };
   await plugin.setup(ctx);
-  const request = (providerID = 'ollama') => ({ sessionID: 'root', model: { providerID, id: 'llama3.2:3b' },
-    request: new Request('http://127.0.0.1:11434/v1/chat/completions', { method: 'POST', body: '{}' }) });
-  await assert.rejects(hooks['http.request'](request('openrouter')), /Local-only/);
-  const local = request(); await hooks['http.request'](local);
-  assert.equal(local.request.url, 'http://127.0.0.1:11435/v1/chat/completions');
-  assert.equal(local.request.headers.get('x-spillover-mode'), 'local');
-  assert.equal(local.request.headers.has('x-spillover-cloud-key'), false);
-  session.model = { providerID: 'local-router' }; const mixed = request(); await hooks['http.request'](mixed);
-  assert.equal(mixed.request.headers.get('x-spillover-cloud-key'), 'mock-key');
-  const retry = { model: { providerID: 'ollama' }, decision: { retry: true, delay: 100 } };
-  hooks.retry(retry); assert.deepEqual(retry.decision, { retry: false });
-  await commands.preset.execute({ sessionID: 'root', prompt: { text: 'mixed' } });
-  assert.equal(switches.length, 1);
-  assert.deepEqual(switches[0], { sessionID: 'root', model: { providerID: 'local-router', id: 'build' } });
+  return hooks;
+}
+
+const make = (providerID, path = '/v1/chat/completions') => ({
+  model: { providerID },
+  request: new Request(`http://127.0.0.1:11434${path}`, {
+    method: 'POST', headers: { 'x-spillover-cloud-key': 'stale' }, body: '{}',
+  }),
+});
+
+test('local-router: mixed mode, forwards the OpenRouter key to the gateway', async () => {
+  const hooks = await setup();
+  const event = make('local-router');
+  await hooks['http.request'](event);
+  assert.equal(event.request.url, 'http://127.0.0.1:11435/v1/chat/completions');
+  assert.equal(event.request.headers.get('x-spillover-mode'), 'mixed');
+  assert.equal(event.request.headers.get('x-spillover-cloud-key'), 'sk-or-test');
+  assert.match(event.request.headers.get('authorization'), /^Bearer .+/);
+});
+
+test('ollama: local mode, never carries a cloud key', async () => {
+  const hooks = await setup();
+  const event = make('ollama');
+  await hooks['http.request'](event);
+  assert.equal(event.request.headers.get('x-spillover-mode'), 'local');
+  assert.equal(event.request.headers.get('x-spillover-cloud-key'), null);
+});
+
+test('openrouter requests are left untouched', async () => {
+  const hooks = await setup();
+  const event = make('openrouter');
+  const before = event.request;
+  await hooks['http.request'](event);
+  assert.equal(event.request, before);
+});
+
+test('non chat-completions paths are rejected for gateway providers', async () => {
+  const hooks = await setup();
+  await assert.rejects(hooks['http.request'](make('ollama', '/v1/embeddings')), /Chat Completions/);
+});
+
+test('retries are disabled for gateway providers only', async () => {
+  const hooks = await setup();
+  const local = { model: { providerID: 'ollama' }, decision: undefined };
+  const cloud = { model: { providerID: 'openrouter' }, decision: undefined };
+  await hooks.retry(local); await hooks.retry(cloud);
+  assert.deepEqual(local.decision, { retry: false });
+  assert.equal(cloud.decision, undefined);
 });
