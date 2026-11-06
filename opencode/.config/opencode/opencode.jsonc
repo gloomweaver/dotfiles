@@ -187,7 +187,23 @@
         { "action": "shell", "resource": "*", "effect": "deny" },
         // Plan folder: relative form (when it's inside the Location) and absolute form (when external).
         { "action": "edit", "resource": ".opencode/plan/*", "effect": "allow" },
-        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" }
+        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" },
+        // Read-only shell: let the plan agent check the toolchain without writing.
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "command -v *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version", "effect": "allow" },
+        { "action": "shell", "resource": "cargo version *", "effect": "allow" },
+        { "action": "shell", "resource": "rustc --version *", "effect": "allow" },
+        { "action": "shell", "resource": "cargo clippy --version *", "effect": "allow" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status *", "effect": "allow" },
+        { "action": "shell", "resource": "git diff *", "effect": "allow" },
+        { "action": "shell", "resource": "git log *", "effect": "allow" },
+        { "action": "shell", "resource": "git branch *", "effect": "allow" },
+        { "action": "shell", "resource": "git remote *", "effect": "allow" },
+        { "action": "shell", "resource": "git --version *", "effect": "allow" }
       ]
     },
     "build-cloud": {
@@ -209,7 +225,23 @@
         { "action": "shell", "resource": "*", "effect": "deny" },
         // Plan folder: relative form (when it's inside the Location) and absolute form (when external).
         { "action": "edit", "resource": ".opencode/plan/*", "effect": "allow" },
-        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" }
+        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" },
+        // Read-only shell: let the plan agent check the toolchain without writing.
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "command -v *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version", "effect": "allow" },
+        { "action": "shell", "resource": "cargo version *", "effect": "allow" },
+        { "action": "shell", "resource": "rustc --version *", "effect": "allow" },
+        { "action": "shell", "resource": "cargo clippy --version *", "effect": "allow" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status *", "effect": "allow" },
+        { "action": "shell", "resource": "git diff *", "effect": "allow" },
+        { "action": "shell", "resource": "git log *", "effect": "allow" },
+        { "action": "shell", "resource": "git branch *", "effect": "allow" },
+        { "action": "shell", "resource": "git remote *", "effect": "allow" },
+        { "action": "shell", "resource": "git --version *", "effect": "allow" }
       ]
     },
     "build-mixed": {
@@ -230,7 +262,23 @@
         { "action": "shell", "resource": "*", "effect": "deny" },
         // Plan folder: relative form (when it's inside the Location) and absolute form (when external).
         { "action": "edit", "resource": ".opencode/plan/*", "effect": "allow" },
-        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" }
+        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" },
+        // Read-only shell: let the plan agent check the toolchain without writing.
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "command -v *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version", "effect": "allow" },
+        { "action": "shell", "resource": "cargo version *", "effect": "allow" },
+        { "action": "shell", "resource": "rustc --version *", "effect": "allow" },
+        { "action": "shell", "resource": "cargo clippy --version *", "effect": "allow" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status *", "effect": "allow" },
+        { "action": "shell", "resource": "git diff *", "effect": "allow" },
+        { "action": "shell", "resource": "git log *", "effect": "allow" },
+        { "action": "shell", "resource": "git branch *", "effect": "allow" },
+        { "action": "shell", "resource": "git remote *", "effect": "allow" },
+        { "action": "shell", "resource": "git --version *", "effect": "allow" }
       ]
     },
     "build-local": {
@@ -252,7 +300,23 @@
         { "action": "shell", "resource": "*", "effect": "deny" },
         // Plan folder: relative form (when it's inside the Location) and absolute form (when external).
         { "action": "edit", "resource": ".opencode/plan/*", "effect": "allow" },
-        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" }
+        { "action": "edit", "resource": "~/.opencode/plan/*", "effect": "allow" },
+        // Read-only shell: let the plan agent check the toolchain without writing.
+        { "action": "shell", "resource": "which *", "effect": "allow" },
+        { "action": "shell", "resource": "command -v *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version *", "effect": "allow" },
+        { "action": "shell", "resource": "* --version", "effect": "allow" },
+        { "action": "shell", "resource": "cargo version *", "effect": "allow" },
+        { "action": "shell", "resource": "rustc --version *", "effect": "allow" },
+        { "action": "shell", "resource": "cargo clippy --version *", "effect": "allow" },
+        { "action": "shell", "resource": "ls *", "effect": "allow" },
+        { "action": "shell", "resource": "find *", "effect": "allow" },
+        { "action": "shell", "resource": "git status *", "effect": "allow" },
+        { "action": "shell", "resource": "git diff *", "effect": "allow" },
+        { "action": "shell", "resource": "git log *", "effect": "allow" },
+        { "action": "shell", "resource": "git branch *", "effect": "allow" },
+        { "action": "shell", "resource": "git remote *", "effect": "allow" },
+        { "action": "shell", "resource": "git --version *", "effect": "allow" }
       ]
     },
 
