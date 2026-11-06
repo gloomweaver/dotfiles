@@ -190,11 +190,26 @@ export function createGateway({ token, localURL = 'http://127.0.0.1:11434/v1/cha
         try {
           const text = Buffer.concat(bodyBytes).toString('utf8').trim();
           if (!text) throw new Error('empty body');
-          // Streamed SSE has "data: " lines; one-shot is a plain JSON object.
-          let payload = text;
+          // Each SSE chunk is a separate JSON object on its own "data: " line;
+          // joining them is a parse error. Take the last JSON object that
+          // carries a usage field (the final chunk), falling back to the first
+          // object for a one-shot response.
+          let usage;
           const dataLines = text.split('\n').filter(l => l.startsWith('data:'));
-          if (dataLines.length) payload = dataLines.map(l => l.slice(5).trim()).filter(l => l !== '[DONE]').join('');
-          const usage = JSON.parse(payload)?.usage;
+          const objects = (dataLines.length ? dataLines : [text])
+            .map(l => (dataLines.length ? l.slice(5).trim() : l))
+            .filter(l => l && l !== '[DONE]');
+          for (const line of objects) {
+            let parsed;
+            try { parsed = JSON.parse(line); } catch { continue; }
+            const u = parsed?.usage ?? parsed?.choices?.find(c => c?.delta?.usage)?.delta?.usage;
+            if (u) usage = u;
+            else if (parsed && 'usage' in parsed) usage = parsed.usage;
+          }
+          // Last resort: a non-streamed single object.
+          if (!usage && dataLines.length === 0) {
+            try { usage = JSON.parse(text)?.usage ?? undefined; } catch {}
+          }
           log(JSON.stringify({
             time: new Date().toISOString(), mode, target: selected, model: body.model,
             wallMs: Date.now() - startedMs,

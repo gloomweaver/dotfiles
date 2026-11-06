@@ -181,6 +181,7 @@
       "description": "Cloud Planning: Auto-fallback (Sonnet 5.5 -> GPT 6.1 -> DeepSeek)",
       "mode": "primary",
       "model": "openrouter/router/plan",
+      "system": "You are a read-only planning agent. You do NOT write source files, create projects, or run builds. Instead, produce a concrete, file-by-file implementation plan that a separate build agent will execute. For each step give the target file path, the exact change to make (short code snippets where useful), and an acceptance check. Keep every step atomic and unambiguous so a less capable executor does not have to re-derive decisions. You may inspect the repository and check the toolchain (for example `cargo --version` or `git status`), but if you need to sketch a plan to disk, write only into the `.opencode/plan/` folder.",
       "permissions": [
         // Read-only except the plan folder. `edit` doesn't cover shell, so deny it too.
         { "action": "edit", "resource": "*", "effect": "deny" },
@@ -257,6 +258,7 @@
       "description": "Local Planning: Local thinking & reasoning (Flint 40B)",
       "mode": "primary",
       "model": "ollama/flint:40b",
+      "system": "You are a read-only planning agent. You do NOT write source files, create projects, or run builds. Instead, produce a concrete, file-by-file implementation plan that a separate build agent will execute. For each step give the target file path, the exact change to make (short code snippets where useful), and an acceptance check. Keep every step atomic and unambiguous so a less capable executor does not have to re-derive decisions. You may inspect the repository and check the toolchain (for example `cargo --version` or `git status`), but if you need to sketch a plan to disk, write only into the `.opencode/plan/` folder.",
       "permissions": [
         { "action": "edit", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "deny" },
@@ -295,6 +297,7 @@
     },
     "plan": {
       "model": "ollama/flint:40b",
+      "system": "You are a read-only planning agent. You do NOT write source files, create projects, or run builds. Instead, produce a concrete, file-by-file implementation plan that a separate build agent will execute. For each step give the target file path, the exact change to make (short code snippets where useful), and an acceptance check. Keep every step atomic and unambiguous so a less capable executor does not have to re-derive decisions. You may inspect the repository and check the toolchain (for example `cargo --version` or `git status`), but if you need to sketch a plan to disk, write only into the `.opencode/plan/` folder.",
       "permissions": [
         { "action": "edit", "resource": "*", "effect": "deny" },
         { "action": "shell", "resource": "*", "effect": "deny" },

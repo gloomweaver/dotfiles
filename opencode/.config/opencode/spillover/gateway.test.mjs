@@ -159,6 +159,33 @@ test('logs completion tokens, cost and wall time from the upstream usage', async
   assert.ok(Number.isFinite(usageLine.wallMs), 'wallMs must be recorded');
 });
 
+test('logs usage from a streamed SSE response split across data lines', async () => {
+  const lines = [];
+  const local = http.createServer(async (req, res) => {
+    for await (const c of req) {}
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.write('data: {"id":"1","choices":[{"delta":{"content":"he"}}]}\n\n');
+    res.write('data: {"id":"2","choices":[{"delta":{"content":"llo"}}]}\n\n');
+    res.write('data: {"id":"3","choices":[{}],"usage":{"completion_tokens":42,"cost":0.00012}}\n\n');
+    res.write('data: [DONE]\n\n');
+    res.end();
+  });
+  const localURL = await listen(local);
+  const gateway = createGateway({ token: 'test', localURL, cloudURL: 'http://127.0.0.1:1', log: l => lines.push(JSON.parse(l)), countPrompt: async () => 7 });
+  const url = await listen(gateway);
+  const result = await fetch(`${url}/v1/chat/completions`, {
+    method: 'POST', headers: { authorization: 'Bearer test', 'content-type': 'application/json', 'x-spillover-mode': 'local' },
+    body: JSON.stringify({ model: 'llama3.2:3b', messages: [{ role: 'user', content: 'hi' }] }),
+  });
+  await result.text();
+  await Promise.all([gateway, local].map(s => new Promise(r => { s.close(r); s.closeAllConnections(); })));
+  const usageLine = lines.find(l => 'completionTokens' in l);
+  assert.ok(usageLine, 'a usage log line must be emitted');
+  assert.equal(usageLine.completionTokens, 42);
+  assert.equal(usageLine.cost, 0.00012);
+  assert.equal(usageLine.usageError, undefined, 'multi-line SSE must not be a parse error');
+});
+
 test('FIFO slots are bounded, cancellation-safe and release is idempotent', async () => {
   const slots = new Slots(1, 1), release = slots.take(); const controller = new AbortController();
   const waiting = slots.wait(controller.signal);
