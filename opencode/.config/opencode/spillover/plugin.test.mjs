@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import plugin, { profileFor } from './index.mjs';
 
 test('children inherit root privacy policy, never their own profile name', async () => {
-  const sessions = { child: { parentID: 'root', agent: 'build-cloud' }, root: { agent: 'build-local' } };
+  const sessions = { child: { parentID: 'root', model: { providerID: 'ollama' } }, root: { model: { providerID: 'openrouter' } } };
   const ctx = { session: { get: async ({ sessionID }) => sessions[sessionID] } };
-  assert.equal(await profileFor(ctx, 'child'), 'local');
-  sessions.root.agent = 'build-mixed'; assert.equal(await profileFor(ctx, 'child'), 'mixed');
-  sessions.root.agent = 'plan-cloud'; assert.equal(await profileFor(ctx, 'child'), 'cloud');
-  sessions.root.agent = 'unknown'; assert.equal(await profileFor(ctx, 'child'), 'local');
+  assert.equal(await profileFor(ctx, 'child'), 'cloud'); // root openrouter -> cloud; child defers to root
+  sessions.root.model = { providerID: 'local-router' }; assert.equal(await profileFor(ctx, 'child'), 'mixed');
+  sessions.root.model = { providerID: 'ollama' }; assert.equal(await profileFor(ctx, 'child'), 'local');
+  sessions.root.model = undefined; assert.equal(await profileFor(ctx, 'child'), 'local'); // missing model: fail closed
 });
 
 test('plugin gates cloud requests, rewrites local requests, and disables unsafe retries', async () => {
-  const hooks = {}, commands = {}, session = { agent: 'build-local' }, switches = [];
+  const hooks = {}, commands = {}, switches = [];
+  const session = { agent: 'build', model: { providerID: 'ollama' } };
   const ctx = {
     session: {
       get: async () => session,
@@ -30,11 +31,11 @@ test('plugin gates cloud requests, rewrites local requests, and disables unsafe 
   assert.equal(local.request.url, 'http://127.0.0.1:11435/v1/chat/completions');
   assert.equal(local.request.headers.get('x-spillover-mode'), 'local');
   assert.equal(local.request.headers.has('x-spillover-cloud-key'), false);
-  session.agent = 'build-mixed'; const mixed = request(); await hooks['http.request'](mixed);
+  session.model = { providerID: 'local-router' }; const mixed = request(); await hooks['http.request'](mixed);
   assert.equal(mixed.request.headers.get('x-spillover-cloud-key'), 'mock-key');
   const retry = { model: { providerID: 'ollama' }, decision: { retry: true, delay: 100 } };
   hooks.retry(retry); assert.deepEqual(retry.decision, { retry: false });
-  await commands.preset.execute({ sessionID: 'root', prompt: { text: 'mixed-build' } });
-  assert.equal(switches[0].agent, 'build-mixed');
-  assert.deepEqual(switches[1].model, { providerID: 'local-router', id: 'build' });
+  await commands.preset.execute({ sessionID: 'root', prompt: { text: 'mixed' } });
+  assert.equal(switches.length, 1);
+  assert.deepEqual(switches[0], { sessionID: 'root', model: { providerID: 'local-router', id: 'build' } });
 });

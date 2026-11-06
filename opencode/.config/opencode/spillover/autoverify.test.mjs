@@ -9,10 +9,10 @@ import { extractRequest, qualifyCriteria, hasDerivableRequest } from './derive.m
 const user = text => ({ type: 'user', text });
 const assistantTool = name => ({ type: 'assistant', content: [{ type: 'tool', name, state: { input: 'x', content: [{ type: 'text', text: 'done' }] } }] });
 
-function mkCtx({ agent = 'build', parentID, diff = [{ file: 'main.go', patch: 'x', additions: 3, deletions: 0 }] } = {}) {
+function mkCtx({ agent = 'build', parentID, model, diff = [{ file: 'main.go', patch: 'x', additions: 3, deletions: 0 }] } = {}) {
   return {
     session: {
-      get: async () => ({ agent, parentID }),
+      get: async () => ({ agent, parentID, model }),
       context: async () => [user('add a foo function'), assistantTool('bash')],
       diff: async () => diff,
     },
@@ -89,7 +89,7 @@ test('skips a child session and a plan agent', async () => {
     store: { get: () => true, set: () => {} },
   });
   await mk({ parentID: 'root' })({ sessionID: 'child', background: [] });
-  await mk({ agent: 'plan-local' })({ sessionID: 'plan', background: [] });
+  await mk({ agent: 'plan', model: { providerID: 'ollama' } })({ sessionID: 'plan', background: [] });
   assert.equal(verifyCalls.length, 0, 'child sessions and plan agents are not graded');
 });
 

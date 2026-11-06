@@ -6,32 +6,43 @@ The gateway runs at login via `~/Library/LaunchAgents/ai.opencode.spillover.plis
 
 ## Select a preset
 
-Use the command, not just agent selection: OpenCode stores the session's model
-separately from its agent. The command switches both.
+There are only two top-level agents — `build` and `plan` — and three routing
+profiles: `cloud`, `mixed`, `local`. The profile is **derived from the root
+session's model provider**, not from an agent-name suffix:
+
+| Root session `model.providerID` | Profile |
+| --- | --- |
+| `openrouter` | `cloud` |
+| `local-router` | `mixed` |
+| `ollama` (or missing/unknown) | `local` (fail closed) |
+
+Use the model picker to switch the stored model, or the `/preset` command as a
+shortcut:
 
 ```text
-/preset cloud-build
-/preset cloud-plan
-/preset mixed-build
-/preset mixed-plan
-/preset local-build
-/preset local-plan
+/preset cloud
+/preset mixed
+/preset local
 ```
 
-| Preset | Primary inference | Supporting requests |
-| --- | --- | --- |
-| Cloud | Existing OpenRouter plan/build fallback chains | Local-first; overflow to cloud |
-| Mixed plan | Existing OpenRouter plan fallback chain | Local-first; overflow to cloud |
-| Mixed build | Flint 40B, otherwise cloud build chain | Local-first; overflow to cloud |
-| Local | Flint 40B | Local only; queue or fail explicitly |
+`/preset` switches only the current session's model for its agent:
 
-`build` and `plan` (and `general`) use Flint 40B; `explore` uses Qwen3 Coder 30B;
-maintenance agents (`summary`, `title`) use Llama 3.2 3B.
-Their actual requests inherit the **root session's** privacy policy. Subagent
-model overrides cannot opt an explicit local-only root into cloud inference.
-The default build/plan configuration remains local. Existing default-agent
-sessions with an explicitly selected OpenRouter model are treated as cloud;
-choose `/preset local-build` or `/preset local-plan` to enforce local-only.
+| Profile | `build` model | `plan` model |
+| --- | --- | --- |
+| `cloud` | `openrouter/router/build` | `openrouter/router/plan` |
+| `mixed` | `local-router/build` | `openrouter/router/plan` |
+| `local` | `ollama/flint:40b` | `ollama/flint:40b` |
+
+Switching plan → build in one session does not necessarily change the stored
+model, so `/preset` (or the model picker) keeps the profile in sync; a stale or
+missing model fails closed to `local`, and cloud requests are never silently
+leaked.
+
+`build` and `general` use `local-router/build` (Local-first + cloud overflow);
+`explore` uses Qwen3 Coder 30B; maintenance agents (`summary`, `title`) use
+Llama 3.2 3B. Their actual requests inherit the **root session's** privacy
+policy. Subagent model overrides cannot opt an explicit local-only root into
+cloud inference.
 
 ## Capacity and failure policy
 
@@ -198,7 +209,7 @@ No OpenCode service restart is necessary.
 
 ## Disable / rollback
 
-Remove the spillover entry from `plugins`, change `build-mixed` back to
+Remove the spillover entry from `plugins`, change `build` and `general` back to
 `ollama/flint:40b`, and optionally remove the `local-router` provider.
 Without the plugin, direct Ollama models bypass gateway scheduling.
 

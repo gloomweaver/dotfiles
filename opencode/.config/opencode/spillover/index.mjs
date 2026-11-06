@@ -12,12 +12,10 @@ export async function profileFor(ctx, sessionID) {
     const session = await ctx.session.get({ sessionID });
     // The root session owns privacy policy, not a child agent's name.
     if (session.parentID) { sessionID = session.parentID; continue; }
-    if (session.agent?.endsWith('-cloud')) return 'cloud';
-    if (session.agent?.endsWith('-mixed')) return 'mixed';
-    if (session.agent?.endsWith('-local')) return 'local';
-    // Preserve an explicit cloud model choice in existing default-agent sessions.
-    if (['build', 'plan'].includes(session.agent) && session.model?.providerID === 'openrouter') return 'cloud';
-    return 'local'; // Fail closed for defaults and unknown profiles.
+    const p = session.model?.providerID;
+    if (p === 'openrouter') return 'cloud';
+    if (p === 'local-router') return 'mixed';
+    return 'local'; // ollama, unknown, or missing: fail closed
   }
   return 'local';
 }
@@ -288,7 +286,7 @@ export default Plugin.define({
     await ctx.session.hook('http.request', async event => {
       const profile = await profileFor(ctx, event.sessionID);
       if (profile === 'local' && !['ollama', 'local-router'].includes(event.model.providerID)) {
-        throw new Error('Local-only preset blocks cloud model requests. Use /preset mixed-build or /preset cloud-build to allow cloud.');
+        throw new Error('Local-only preset blocks cloud model requests. Use /preset mixed or /preset cloud to allow cloud.');
       }
       if (!['ollama', 'local-router'].includes(event.model.providerID)) return;
       const url = new URL(event.request.url);
@@ -315,22 +313,24 @@ export default Plugin.define({
       const abilities = profile === 'local' ? 'all inference must stay local, never override a child model with a cloud model.' : 'new local requests automatically spill to cloud when the slot is busy; cloud use is permitted.';
       event.system.push({ type: 'text', text: `Routing preset: ${profile}. Delegate only when useful: at most 3 independent child tasks in flight. Give each a bounded objective, relevant paths and acceptance checks; request concise findings with file/line references. Do not split trivial work. Never let concurrent workers edit overlapping files. You integrate and verify results. Local inference is serialized by a gateway; ${abilities} Planning agents must not change files or delegate implementation. Use explore for read-only discovery and general for bounded implementation in build modes. Before declaring a task done you MUST run the task's actual acceptance commands (build/test/vet and any stated examples) and paste their real, unedited output into your reply. Never write a test whose expected value merely encodes your current output; derive expectations from the specification, not from what the program happened to print. If the spec says preserve key order, verify key order explicitly.` });
     });
-    // Agent selection alone does not necessarily switch the session's stored
-    // model. This command explicitly changes BOTH, avoiding stale cloud/local choices.
+    // The model picker switches the session's stored model directly; /preset is a
+    // shortcut that switches ONLY the model for the current agent (plan or build).
+    // Switching plan -> build in one session does not necessarily change the stored
+    // model, so the profile (derived from that stored model) would go stale.
     await ctx.command.transform(editor => editor.add({
       name: 'preset',
-      description: 'Switch agent AND model: cloud-build, cloud-plan, mixed-build, mixed-plan, local-build, local-plan',
+      description: 'Switch model: cloud|mixed|local',
       execute: async ({ sessionID, prompt }) => {
-        const match = /^(cloud|mixed|local)-(build|plan)$/.exec(prompt.text.trim());
-        if (!match) throw new Error('Usage: /preset cloud-build|cloud-plan|mixed-build|mixed-plan|local-build|local-plan');
-        const [, profile, mode] = match;
-        const agent = `${mode}-${profile}`;
+        const match = /^(cloud|mixed|local)$/.exec(prompt.text.trim());
+        if (!match) throw new Error('Usage: /preset cloud|mixed|local');
+        const profile = match[1];
+        const { agent } = await ctx.session.get({ sessionID });
+        const mode = agent === 'plan' ? 'plan' : 'build';
         const model = profile === 'local'
-          ? { providerID: 'ollama', id: mode === 'build' ? 'flint:40b' : 'flint:40b' }
-          : profile === 'mixed' && mode === 'build'
-            ? { providerID: 'local-router', id: 'build' }
+          ? { providerID: 'ollama', id: 'flint:40b' }
+          : profile === 'mixed'
+            ? (mode === 'build' ? { providerID: 'local-router', id: 'build' } : { providerID: 'openrouter', id: 'router/plan' })
             : { providerID: 'openrouter', id: `router/${mode}` };
-        await ctx.session.switchAgent({ sessionID, agent });
         await ctx.session.switchModel({ sessionID, model });
       },
     }));
