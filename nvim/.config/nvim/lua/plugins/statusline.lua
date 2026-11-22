@@ -6,7 +6,7 @@ return {
   config = function()
     require("lualine").setup({
       options = {
-        theme = "catppuccin",
+        theme = "catppuccin-nvim",  -- follows the flavour set in colorscheme.lua
         component_separators = { left = "│", right = "│" },
         section_separators = { left = "", right = "" },
         globalstatus = true,  -- single statusline for all splits
