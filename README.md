@@ -31,7 +31,7 @@ The installer is **idempotent** — safe to re-run at any time.
 ├── fish/           # Fish shell — config, functions, completions
 ├── ghostty/        # Ghostty terminal — theme, opacity, titlebar
 ├── tmux/           # Tmux — Catppuccin status bar, plugins, keybindings
-├── nvim/           # Neovim — LSP, completion, telescope, treesitter
+├── nvim/           # Neovim — LSP, completion, snacks picker, treesitter, Claude Code
 ├── aerospace/      # AeroSpace — tiling window manager
 ├── starship/       # Starship prompt
 ├── mise/           # mise — global runtime versions (java, …)
@@ -144,7 +144,7 @@ Prefix: **`Ctrl+a`**
 
 Leader: **Space**. Press Space and wait — which-key shows all available keybindings.
 
-### Find (Telescope)
+### Find (Snacks picker)
 
 | Key | Action |
 |---|---|
@@ -158,7 +158,19 @@ Leader: **Space**. Press Space and wait — which-key shows all available keybin
 | `Space gc` | Git commits |
 | `Space sr` | Resume last search |
 
-Inside telescope: `Ctrl+j/k` navigate, `Esc` close, `Enter` open, `Ctrl+q` send to quickfix.
+Inside the picker: `Ctrl+j/k` navigate, `Esc` close, `Enter` open, `Ctrl+q` send to quickfix.
+
+### Claude Code (claudecode.nvim)
+
+| Key | Action |
+|---|---|
+| `Space ac` | Toggle Claude |
+| `Space af` | Focus Claude |
+| `Space ar` / `aC` | Resume a session / continue the last one |
+| `Space am` | Select model |
+| `Space ab` | Add current buffer to context |
+| `Space as` | Send selection (visual) / add file (in explorer) |
+| `Space aa` / `ad` | Accept / deny a proposed diff |
 
 ### Code (LSP)
 

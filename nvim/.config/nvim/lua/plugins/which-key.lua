@@ -17,6 +17,7 @@ return {
       { "<leader>b", group = "buffers" },
       { "<leader>g", group = "git" },
       { "<leader>c", group = "code" },
+      { "<leader>a", group = "ai (claude)" },
     })
   end,
 }

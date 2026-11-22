@@ -11,7 +11,7 @@ return {
         treesitter = true,
         native_lsp = { enabled = true },
         gitsigns = true,
-        telescope = true,
+        snacks = { enabled = true },
         mason = true,
         which_key = true,
       },
