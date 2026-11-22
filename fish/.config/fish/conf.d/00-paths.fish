@@ -55,6 +55,11 @@ if test -d "$HOME/Library/Application Support/Coursier/bin"
     fish_add_path "$HOME/Library/Application Support/Coursier/bin"
 end
 
+# ── PostgreSQL client (libpq is keg-only: psql, pg_dump, … are not linked) ──
+if test -d $HOMEBREW_PREFIX/opt/libpq/bin
+    fish_add_path $HOMEBREW_PREFIX/opt/libpq/bin
+end
+
 # ── Local bin ────────────────────────────────────────────
 fish_add_path ~/.local/bin
 
