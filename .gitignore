@@ -23,19 +23,3 @@ fish/.config/fish/themes/static
 
 # Brew lock file
 Brewfile.mac.lock.json
-
-# Pi generated files
-pi/.pi/agent/sessions/
-pi/.pi/agent/auth.json
-pi/.pi/agent/extensions/*/node_modules/
-
-# OpenCode machine-local files (secrets, runtime logs, backups, deps)
-opencode/.config/opencode/spillover/token
-opencode/.config/opencode/spillover/gateway.log
-opencode/.config/opencode/spillover/gateway.error.log
-opencode/.config/opencode/spillover/verdict.log
-opencode/.config/opencode/spillover/package-lock.json
-opencode/.config/opencode/spillover/node_modules/
-opencode/.config/opencode/opencode.jsonc.before-spillover-*
-opencode/.config/opencode/service.json
-opencode/.config/opencode/.gitignore

@@ -16,15 +16,12 @@ The installer is **idempotent** — safe to re-run at any time.
 
 1. Installs Homebrew (if missing)
 2. Installs all packages from `Brewfile.mac` (macOS only)
-3. Stows all configs (fish, ghostty, tmux, nvim, aerospace, pi)
+3. Stows all configs (fish, ghostty, tmux, nvim, aerospace, starship)
 4. Sets fish as default shell
 5. Installs Fisher (fish plugin manager) + plugins
 6. Installs TPM (tmux plugin manager)
 7. Installs VitePlus
-8. Installs Pi via `vp install -g @mariozechner/pi-coding-agent`
-9. Installs pi extension dependencies (webfetch)
-10. Applies the VitePlus pi extension-loader workaround
-11. Optionally applies macOS defaults (keyboard, Finder, Dock)
+8. Optionally applies macOS defaults (keyboard, Finder, Dock)
 
 ## Structure
 
@@ -35,8 +32,6 @@ The installer is **idempotent** — safe to re-run at any time.
 ├── tmux/           # Tmux — Catppuccin status bar, plugins, keybindings
 ├── nvim/           # Neovim — LSP, completion, telescope, treesitter
 ├── aerospace/      # AeroSpace — tiling window manager
-├── pi/             # Pi coding agent — agents, extensions, prompts, theme
-├── opencode/       # OpenCode — config, models, local-first routing plugin
 ├── Brewfile.mac    # Homebrew packages (brew bundle dump to update)
 ├── install.sh      # Idempotent installer
 └── .gitignore
@@ -51,8 +46,6 @@ The installer is **idempotent** — safe to re-run at any time.
 | `tmux` | `~/.tmux.conf` | normal |
 | `nvim` | `~/.config/nvim/` | normal |
 | `aerospace` | `~/.aerospace.toml` | normal |
-| `pi` | `~/.pi/agent/` | `--no-folding` (preserves sessions/auth) |
-| `opencode` | `~/.config/opencode/` | `--no-folding` (preserves token/logs) |
 
 ---
 
@@ -251,86 +244,6 @@ Service mode: `r` reset layout, `f` toggle floating, `Esc` exit.
 
 ---
 
-## Pi Coding Agent
-
-Theme: Catppuccin Mocha (matches everything else).
-
-### Extensions
-
-| Extension | Description |
-|---|---|
-| **subagent** | Delegate tasks to specialized agents (single, parallel, chain) |
-| **plan** | Read-only exploration mode — `/plan` to toggle |
-| **webfetch** | Fetch and convert web pages to markdown |
-| **notify** | macOS native notifications |
-
-If a VitePlus update breaks pi extension loading, run:
-
-```bash
-~/.pi/agent/bin/fix-vite-plus-pi-loader.sh
-```
-
-`install.sh` runs this automatically.
-
-### Agents (for subagent)
-
-| Agent | Model | Role |
-|---|---|---|
-| **scout** | claude-haiku-4-5 | Fast codebase recon |
-| **planner** | claude-sonnet-4-5 | Implementation planning (read-only) |
-| **worker** | claude-sonnet-4-5 | Code implementation (full access) |
-| **reviewer** | claude-sonnet-4-5 | Code review (read-only) |
-
-### Prompt templates (type `/` in pi)
-
-| Template | Pipeline |
-|---|---|
-| `/scout-and-plan` | scout → planner |
-| `/implement` | scout → planner → worker |
-| `/implement-and-review` | worker → reviewer → worker |
-
-### Skills
-
-- **find-skills** — discover community skills via `npx skills find`
-
----
-
-## OpenCode
-
-Local-first coding agent config with automatic cloud overflow. Config:
-`opencode/.config/opencode/opencode.jsonc`; routing plugin lives in
-`opencode/.config/opencode/spillover/`.
-
-### Models
-
-| Model | Role |
-|---|---|
-| **Flint 40B (MoE)** | Primary build/plan workhorse (reasoning) |
-| **Qwen3 Coder 30B (MoE)** | `explore` (fast, non-reasoning) |
-| **Llama 3.2 3B** | Background utilities (`summary`, `title`) |
-
-### Routing presets (`/preset`)
-
-| Preset | Primary inference | Overflow |
-|---|---|---|
-| `cloud-build` / `cloud-plan` | OpenRouter fallback routers | n/a |
-| `mixed-build` / `mixed-plan` | Local-first (Flint) + cloud plan | Cloud when busy/large |
-| `local-build` / `local-plan` | Flint 40B | None (queue/fail) |
-
-Local inference is serialized through a gateway on `127.0.0.1:11435`. See
-`spillover/README.md` for capacity/failure policy, inspection (`status.mjs`),
-and the `/verify` cloud-review command.
-
-### Secrets and machine-local files (not tracked)
-
-The gateway auth `token`, `service.json` (route password), runtime logs
-(`gateway.log`, `gateway.error.log`), config backups
-(`*.before-spillover-*`), `package-lock.json`, and `node_modules/` are
-gitignored. On first install you must create `~/.config/opencode/spillover/token`
-(a random 64-byte secret, mode 0600) before the gateway can start.
-
----
-
 ## Updating
 
 ### After editing dotfiles
@@ -351,10 +264,4 @@ brew bundle dump --file=Brewfile.mac --force
 ```bash
 cd ~/dotfiles
 ./install.sh
-```
-
-### Re-apply the pi VitePlus workaround only
-
-```bash
-~/.pi/agent/bin/fix-vite-plus-pi-loader.sh
 ```

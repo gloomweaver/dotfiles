@@ -80,26 +80,6 @@ stow_package() {
     fi
 }
 
-# Stow with --no-folding: symlinks individual files, not directories
-# Use for packages that share a directory with non-managed files (e.g. ~/.pi/agent/sessions)
-stow_package_no_folding() {
-    local pkg="$1"
-    if [[ ! -d "$DOTFILES_DIR/$pkg" ]]; then
-        warn "Package '$pkg' not found, skipping"
-        return
-    fi
-    if stow -d "$DOTFILES_DIR" -t "$HOME" -R --no-folding "$pkg" 2>/dev/null; then
-        ok "Stowed $pkg (no-folding)"
-    else
-        warn "Conflicts for $pkg — adopting existing files..."
-        stow -d "$DOTFILES_DIR" -t "$HOME" --adopt --no-folding "$pkg"
-        # Restore dotfiles versions after adopt
-        (cd "$DOTFILES_DIR" && git checkout -- "$pkg" 2>/dev/null || true)
-        stow -d "$DOTFILES_DIR" -t "$HOME" -R --no-folding "$pkg"
-        ok "Stowed $pkg (no-folding, adopted conflicts)"
-    fi
-}
-
 # ── Backup existing configs before first run ─────────────
 backup_if_needed() {
     local path="$1"
@@ -147,7 +127,6 @@ backup_if_needed "$HOME/.config/fish"
 backup_if_needed "$HOME/.config/ghostty"
 backup_if_needed "$HOME/.config/starship.toml"
 backup_if_needed "$HOME/.tmux.conf"
-backup_if_needed "$HOME/.config/opencode"
 
 stow_package "fish"
 stow_package "ghostty"
@@ -155,8 +134,6 @@ stow_package "tmux"
 stow_package "nvim"
 stow_package "aerospace"
 stow_package "starship"
-stow_package_no_folding "pi"
-stow_package_no_folding "opencode"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"
@@ -228,42 +205,10 @@ else
     ok "VitePlus installed"
 fi
 
-# ── 9. Pi coding agent ───────────────────────────────────
-step "Pi coding agent"
-if command_exists pi; then
-    ok "Pi already installed ($(pi --version 2>/dev/null || echo 'unknown version'))"
-else
-    info "Installing pi coding agent via VitePlus..."
-    vp install -g @mariozechner/pi-coding-agent
-    ok "Pi installed"
-fi
-
-# ── 10. Pi extension dependencies ────────────────────────
-step "Pi extensions"
-if [[ -f "$HOME/.pi/agent/extensions/webfetch/package.json" ]]; then
-    info "Installing webfetch dependencies..."
-    (cd "$HOME/.pi/agent/extensions/webfetch" && npm install --silent 2>/dev/null)
-    ok "webfetch ready"
-else
-    info "Skipping (pi extensions not found)"
-fi
-
-# ── 11. Pi loader workaround for VitePlus installs ──────
-step "Pi loader workaround"
-if [[ -x "$HOME/.pi/agent/bin/fix-vite-plus-pi-loader.sh" ]]; then
-    if "$HOME/.pi/agent/bin/fix-vite-plus-pi-loader.sh"; then
-        ok "Pi loader workaround applied"
-    else
-        warn "Pi loader workaround failed — extensions may not load until fixed manually"
-    fi
-else
-    warn "Pi loader workaround script not found at ~/.pi/agent/bin/fix-vite-plus-pi-loader.sh"
-fi
-
-# ── 12. Create ~/.local/bin ──────────────────────────────
+# ── 9. Create ~/.local/bin ───────────────────────────────
 mkdir -p "$HOME/.local/bin"
 
-# ── 13. macOS defaults ──────────────────────────────────
+# ── 10. macOS defaults ──────────────────────────────────
 if [[ "$(uname)" == "Darwin" ]]; then
     step "macOS defaults"
     if confirm "Apply recommended macOS defaults? (keyboard, Finder, Dock)" "y"; then
