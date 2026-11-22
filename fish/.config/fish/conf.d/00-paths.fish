@@ -15,7 +15,13 @@ else if test -f /usr/local/bin/brew
 end
 
 # Use Homebrew ncurses terminfo (has modern capabilities: tmux-direct, Smulx, Setulc, smxx)
-set -gx TERMINFO_DIRS /opt/homebrew/share/terminfo:/opt/homebrew/Cellar/ncurses/6.6/share/terminfo:$TERMINFO_DIRS
+# opt/ncurses is a version-independent symlink, so this survives ncurses upgrades
+if test -d $HOMEBREW_PREFIX/opt/ncurses/share/terminfo
+    and not string match -q "*$HOMEBREW_PREFIX/opt/ncurses/share/terminfo*" -- "$TERMINFO_DIRS"
+    # Quoted: an unset $TERMINFO_DIRS would otherwise expand the whole word to nothing.
+    # The trailing ":" it leaves keeps the system default directories in the search.
+    set -gx TERMINFO_DIRS "$HOMEBREW_PREFIX/opt/ncurses/share/terminfo:$TERMINFO_DIRS"
+end
 
 # ── Golang ───────────────────────────────────────────────
 if command -q go

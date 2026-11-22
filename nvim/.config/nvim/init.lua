@@ -58,11 +58,8 @@ local map = vim.keymap.set
 -- Clear search highlight with Escape
 map("n", "<Esc>", "<cmd>nohlsearch<CR>")
 
--- Better window navigation (Ctrl+h/j/k/l)
-map("n", "<C-h>", "<C-w>h", { desc = "Move to left pane" })
-map("n", "<C-j>", "<C-w>j", { desc = "Move to lower pane" })
-map("n", "<C-k>", "<C-w>k", { desc = "Move to upper pane" })
-map("n", "<C-l>", "<C-w>l", { desc = "Move to right pane" })
+-- Window navigation (Ctrl+h/j/k/l) lives in lua/plugins/tmux-navigator.lua,
+-- so the same keys cross between nvim splits and tmux panes
 
 -- Move selected lines up/down in visual mode
 map("v", "J", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })

@@ -71,13 +71,27 @@ stow_package() {
     # Restow: removes old symlinks, re-creates them
     if stow -d "$DOTFILES_DIR" -t "$HOME" -R "$pkg" 2>/dev/null; then
         ok "Stowed $pkg"
-    else
-        # Conflict — adopt existing files then restow so dotfiles version wins
-        warn "Conflicts for $pkg — adopting existing files..."
-        stow -d "$DOTFILES_DIR" -t "$HOME" --adopt "$pkg"
-        stow -d "$DOTFILES_DIR" -t "$HOME" -R "$pkg"
-        ok "Stowed $pkg (adopted conflicts)"
+        return
     fi
+
+    # Conflict — real files exist where stow wants symlinks.
+    # --adopt moves those files into the repo, overwriting our versions, so only
+    # do it on a clean package, save what differed, then restore our versions.
+    if [[ -n "$(git -C "$DOTFILES_DIR" status --porcelain -- "$pkg")" ]]; then
+        err "Conflicts for $pkg, and $pkg has uncommitted changes — commit or stash them, then re-run"
+        return 1
+    fi
+    warn "Conflicts for $pkg — replacing existing files with dotfiles versions..."
+    stow -d "$DOTFILES_DIR" -t "$HOME" --adopt "$pkg"
+    if ! git -C "$DOTFILES_DIR" diff --quiet -- "$pkg"; then
+        local backup_dir="$HOME/.dotfiles-backups/$(date +%Y%m%d-%H%M%S)"
+        mkdir -p "$backup_dir"
+        git -C "$DOTFILES_DIR" diff -- "$pkg" > "$backup_dir/$pkg-replaced.patch"
+        info "Saved what the replaced files had → $backup_dir/$pkg-replaced.patch"
+        git -C "$DOTFILES_DIR" checkout -- "$pkg"
+    fi
+    stow -d "$DOTFILES_DIR" -t "$HOME" -R "$pkg"
+    ok "Stowed $pkg (replaced conflicting files)"
 }
 
 # ── Backup existing configs before first run ─────────────
