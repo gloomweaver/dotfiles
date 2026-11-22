@@ -14,3 +14,6 @@ end
 if command -q zoxide
     zoxide init --cmd cd fish | source
 end
+
+# mise (runtime versions) — activated by Homebrew's vendor_conf.d/mise-activate.fish,
+# so no explicit `mise activate` is needed here

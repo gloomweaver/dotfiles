@@ -17,16 +17,6 @@ end
 # Use Homebrew ncurses terminfo (has modern capabilities: tmux-direct, Smulx, Setulc, smxx)
 set -gx TERMINFO_DIRS /opt/homebrew/share/terminfo:/opt/homebrew/Cellar/ncurses/6.6/share/terminfo:$TERMINFO_DIRS
 
-# ── asdf version manager ────────────────────────────────
-if test -f $HOMEBREW_PREFIX/opt/asdf/libexec/asdf.fish
-    source $HOMEBREW_PREFIX/opt/asdf/libexec/asdf.fish
-else if test -f ~/.asdf/asdf.fish
-    source ~/.asdf/asdf.fish
-end
-if test -d ~/.asdf/shims
-    fish_add_path ~/.asdf/shims
-end
-
 # ── Golang ───────────────────────────────────────────────
 if command -q go
     fish_add_path (go env GOPATH)/bin

@@ -2,7 +2,7 @@ function dotsync
   cd ~/dotfiles
 
   # Standard packages
-  set packages fish ghostty tmux nvim aerospace
+  set packages fish ghostty tmux nvim aerospace starship mise
 
   # Restow all packages to pick up new files
   for pkg in $packages

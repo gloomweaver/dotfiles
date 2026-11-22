@@ -16,12 +16,13 @@ The installer is **idempotent** — safe to re-run at any time.
 
 1. Installs Homebrew (if missing)
 2. Installs all packages from `Brewfile.mac` (macOS only)
-3. Stows all configs (fish, ghostty, tmux, nvim, aerospace, starship)
+3. Stows all configs (fish, ghostty, tmux, nvim, aerospace, starship, mise)
 4. Sets fish as default shell
 5. Installs Fisher (fish plugin manager) + plugins
 6. Installs TPM (tmux plugin manager)
-7. Installs VitePlus
-8. Optionally applies macOS defaults (keyboard, Finder, Dock)
+7. Installs runtimes with mise (`mise install`)
+8. Installs VitePlus
+9. Optionally applies macOS defaults (keyboard, Finder, Dock)
 
 ## Structure
 
@@ -32,6 +33,8 @@ The installer is **idempotent** — safe to re-run at any time.
 ├── tmux/           # Tmux — Catppuccin status bar, plugins, keybindings
 ├── nvim/           # Neovim — LSP, completion, telescope, treesitter
 ├── aerospace/      # AeroSpace — tiling window manager
+├── starship/       # Starship prompt
+├── mise/           # mise — global runtime versions (java, …)
 ├── Brewfile.mac    # Homebrew packages (brew bundle dump to update)
 ├── install.sh      # Idempotent installer
 └── .gitignore
@@ -46,6 +49,8 @@ The installer is **idempotent** — safe to re-run at any time.
 | `tmux` | `~/.tmux.conf` | normal |
 | `nvim` | `~/.config/nvim/` | normal |
 | `aerospace` | `~/.aerospace.toml` | normal |
+| `starship` | `~/.config/starship.toml` | normal |
+| `mise` | `~/.config/mise/config.toml` | normal |
 
 ---
 
@@ -79,7 +84,7 @@ Default shell. Config: `fish/.config/fish/config.fish`
 
 ### PATH (configured automatically)
 
-Homebrew, asdf, Go, Rust, Bun, pnpm, NVM, Coursier, OrbStack, VitePlus, `~/.local/bin`
+Homebrew, mise, Go, Rust, Bun, pnpm, NVM, Coursier, OrbStack, VitePlus, `~/.local/bin`
 
 ---
 

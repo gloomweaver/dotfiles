@@ -127,6 +127,7 @@ backup_if_needed "$HOME/.config/fish"
 backup_if_needed "$HOME/.config/ghostty"
 backup_if_needed "$HOME/.config/starship.toml"
 backup_if_needed "$HOME/.tmux.conf"
+backup_if_needed "$HOME/.config/mise"
 
 stow_package "fish"
 stow_package "ghostty"
@@ -134,6 +135,7 @@ stow_package "tmux"
 stow_package "nvim"
 stow_package "aerospace"
 stow_package "starship"
+stow_package "mise"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"
@@ -187,12 +189,14 @@ else
     ok "TPM installed — press Ctrl+b I inside tmux to install plugins"
 fi
 
-# ── 7. asdf ──────────────────────────────────────────────
-step "asdf"
-if command_exists asdf; then
-    ok "asdf already installed"
+# ── 7. mise (runtime versions) ──────────────────────────
+step "mise"
+if command_exists mise; then
+    info "Installing tools from ~/.config/mise/config.toml..."
+    mise install
+    ok "mise tools installed"
 else
-    warn "asdf not found — it should have been installed via Brewfile"
+    warn "mise not found — it should have been installed via Brewfile"
 fi
 
 # ── 8. VitePlus ──────────────────────────────────────────
