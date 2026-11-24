@@ -150,6 +150,7 @@ stow_package "nvim"
 stow_package "aerospace"
 stow_package "starship"
 stow_package "mise"
+stow_package "claude"
 
 # ── 4. Fish as default shell ────────────────────────────
 step "Fish shell"
